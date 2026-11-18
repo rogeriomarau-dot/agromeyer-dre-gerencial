@@ -100,6 +100,10 @@ td.click{cursor:pointer}td.click:hover{background:#fff3ea}
 .cons-note{display:none}
 body.cons .cons-note{display:flex}
 body.cons .only-loja{display:none!important}
+.cons-only{display:none!important}
+body.cons .cons-only{display:inline-flex!important}
+body.cons .cons-only.blk{display:block!important}
+.cmpt{display:inline-flex;align-items:center;gap:6px;background:#fff1e8;border:1px solid #f6c9ad;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#a8430a;cursor:pointer}
 .legend{font-size:12px;color:var(--mu);margin-top:8px}
 @media print{header,nav,.noprint{display:none!important}.tw{max-height:none;overflow:visible}}
 </style>
@@ -150,6 +154,9 @@ body.cons .only-loja{display:none!important}
       <div class="card"><h3>Custos variáveis × Despesas fixas (% do faturamento)</h3><div class="chartbox"><canvas id="c4"></canvas></div></div>
       <div class="card"><h3>Estoque: prazo médio de rotação (dias) e giro</h3><div class="chartbox"><canvas id="c5"></canvas></div></div>
       <div class="card"><h3>Endividamento bancário</h3><div class="chartbox"><canvas id="c6"></canvas></div></div>
+      <div class="card cons-only blk" style="grid-column:1/-1"><h3>Comparativo Loja 01 × Loja 02 — valores do período (R$)</h3><div class="chartbox"><canvas id="c8"></canvas></div></div>
+      <div class="card cons-only blk"><h3>Comparativo Loja 01 × Loja 02 — % do faturamento</h3><div class="chartbox"><canvas id="c9"></canvas></div></div>
+      <div class="card cons-only blk"><h3>Faturamento mensal por loja</h3><div class="chartbox"><canvas id="c10"></canvas></div></div>
       <div class="card" style="grid-column:1/-1"><h3 id="c7t">Evolução das categorias</h3><div class="chartbox"><canvas id="c7"></canvas></div></div>
     </div>
   </section>
@@ -159,6 +166,7 @@ body.cons .only-loja{display:none!important}
     <div class="row" style="justify-content:space-between;margin-bottom:10px">
       <div><h2>DRE — <span class="lojaNome"></span></h2><p class="sub">Clique nos grupos para expandir/recolher. Clique em um valor para ver as contas do ERP que o compõem<span class="only-loja"> e lançar ajustes manuais</span>.</p></div>
       <div class="row noprint">
+        <label class="cmpt cons-only"><input type="checkbox" class="optCmp"> Comparativo por loja</label>
         <label class="small"><input type="checkbox" id="optAV" checked> AV%</label>
         <label class="small"><input type="checkbox" id="optAH"> AH%</label>
         <button class="btn ghost" id="expAll">Expandir tudo</button>
@@ -173,7 +181,7 @@ body.cons .only-loja{display:none!important}
 
   <!-- INDICADORES -->
   <section class="sec" id="s-ind">
-    <h2>Indicadores mensais — <span class="lojaNome"></span></h2>
+    <div class="row" style="justify-content:space-between"><h2 id="indTit">Indicadores mensais — <span class="lojaNome"></span></h2><label class="cmpt cons-only noprint"><input type="checkbox" class="optCmp"> Comparativo por loja</label></div>
     <p class="sub">Todos calculados a partir dos dados importados e dos dados complementares. Meses sem dados ficam em branco.</p>
     <div class="tw"><table id="indT"></table></div>
     <div class="card" style="margin-top:16px">
@@ -396,10 +404,11 @@ function normST(){
   const y=ST.ano||new Date().getFullYear();
   if(!ST.per||!ST.per.de)ST.per={de:y+'-01',ate:y+'-12'};
   if(!Array.isArray(ST.cat))ST.cat=[];
-  if(ST.fRes==null)ST.fRes=true;}
+  if(ST.fRes==null)ST.fRes=true;
+  if(ST.cmp==null)ST.cmp=true;}
 function load(){let p={};try{p=JSON.parse(localStorage.getItem(PKEY))||{};}catch(e){}
-  ST={lojas:{},plano:planoVazio(),loja:p.loja,per:p.per,cat:p.cat,fRes:p.fRes};normST();}
-function savePrefs(){try{localStorage.setItem(PKEY,JSON.stringify({loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes}));}catch(e){}}
+  ST={lojas:{},plano:planoVazio(),loja:p.loja,per:p.per,cat:p.cat,fRes:p.fRes,cmp:p.cmp};normST();}
+function savePrefs(){try{localStorage.setItem(PKEY,JSON.stringify({loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes,cmp:ST.cmp}));}catch(e){}}
 function save(){savePrefs();invalid();if(SYNC.ready)agendaEnvio();}
 // dados (sem preferências) — usado no backup
 const dadosST=()=>({v:2,empresa:EMP,exportadoEm:new Date().toISOString(),plano:ST.plano,lojas:ST.lojas});
@@ -468,12 +477,14 @@ async function iniciaSessao(u){SYNC.user=u;$('#lgBox').style.display='none';$('#
   enviaNuvem(); // cria os documentos na primeira vez / envia migração
   $('#login').classList.remove('on');renderAll();setStatus();}
 function encerraSessao(){paraEscuta();SYNC.ready=false;SYNC.emp=null;SYNC.existe={};SYNC.lojas={L1:null,L2:null};SYNC.lotes={L1:{},L2:{}};SYNC.user=null;
-  const pref={loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes};ST={lojas:{},plano:planoVazio(),...pref};normST();buildEstr();
+  const pref={loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes,cmp:ST.cmp};ST={lojas:{},plano:planoVazio(),...pref};normST();buildEstr();
   $('#login').classList.add('on');$('#lgLoad').style.display='none';$('#lgBox').style.display='';$('#lgSenha').value='';}
 window.onAuth=u=>{if(u)iniciaSessao(u).catch(e=>{console.error(e);$('#lgMsg').textContent='Erro ao carregar: '+e.message;$('#lgBox').style.display='';$('#lgLoad').style.display='none';});else encerraSessao();};
 load();buildEstr();
 const LOJAS=[['L1','Loja 01'],['L2','Loja 02'],['CONS','Consolidado']];
 const isCons=()=>ST.loja==='CONS';
+const modoComp=()=>ST.loja==='CONS'&&ST.cmp!==false;
+const LJS=[['L1','Loja 01'],['L2','Loja 02'],['CONS','Consolidado']];
 const mk=(a,i)=>a+'-'+String(i+1).padStart(2,'0');
 const nextM=m=>{let[a,b]=m.split('-').map(Number);b++;if(b>12){b=1;a++;}return a+'-'+String(b).padStart(2,'0');};
 const addM=(m,n)=>{let[a,b]=m.split('-').map(Number);let t=a*12+(b-1)+n;return Math.floor(t/12)+'-'+String(t%12+1).padStart(2,'0');};
@@ -585,6 +596,7 @@ function renderHeader(){
   document.body.classList.toggle('cons',isCons());
   document.querySelectorAll('.lojaNome').forEach(e=>e.textContent=nomeLoja());
   renderFiltros();
+  document.querySelectorAll('.optCmp').forEach(c=>c.checked=ST.cmp!==false);
   const other=ST.loja==='L1'?'Loja 02':'Loja 01';
   $('#btnCopyMap').textContent='Copiar de-para da '+other;
   $('#bkClr').textContent='Apagar dados da '+nomeLoja();
@@ -626,6 +638,7 @@ $('#fCatPop').onclick=e=>{e.stopPropagation();const a=e.target.dataset.a;if(!a)r
 $('#fCatPop').onchange=()=>{};
 function aplicaCat(){const v=[...$('#fCatPop').querySelectorAll('input:checked')].map(i=>i.value);ST.cat=v.length===CATS.length?[]:v;ST.cat.forEach(id=>COL[id]=0);saveCol();save();renderAll();}
 document.addEventListener('click',()=>{if($('#fCatPop').classList.contains('on')){$('#fCatPop').classList.remove('on');aplicaCat();}});
+document.querySelectorAll('.optCmp').forEach(c=>c.onchange=e=>{ST.cmp=e.target.checked;save();document.querySelectorAll('.optCmp').forEach(x=>x.checked=ST.cmp);renderTab();});
 $('#fRes').onchange=e=>{ST.fRes=e.target.checked;save();renderTab();};
 $('#fClr').onclick=()=>{const y=new Date().getFullYear();const td=todosMesesDados(ST.loja);const yy=td.length?td[td.length-1].slice(0,4):y;ST.cat=[];ST.per={de:yy+'-01',ate:yy+'-12'};save();renderAll();};
 // pertence ao filtro de categorias?
@@ -661,7 +674,7 @@ function renderPainel(){
   $('#pTitle').textContent='Painel — '+nomeLoja();
   $('#pWarn').innerHTML=warnHTML();
   if(!dm.length){$('#pSub').textContent='Nenhum dado importado no período '+perTxt()+'.';$('#kpis').innerHTML=`<div class="card empty" style="grid-column:1/-1">Sem dados no período selecionado. Ajuste o período na barra de filtros ou importe a exportação do ERP na aba <b>Importar do ERP</b>${isCons()?' de cada loja':''}.</div>`;
-    ['c1','c2','c3','c4','c5','c6','c7'].forEach(c=>chart(c,null));return;}
+    ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10'].forEach(c=>chart(c,null));return;}
   const ms=dm;
   $('#pSub').textContent=`Período ${perTxt()} · ${dm.length} mês(es) com dados (de ${MLL(dm[0])} a ${MLL(dm[dm.length-1])})`;
   const x=indic(lj,ms);
@@ -701,13 +714,38 @@ function renderPainel(){
   $('#c7t').textContent=ST.cat.length?'Evolução mensal das categorias filtradas':'Evolução mensal das despesas fixas por grupo';
   const ds=cs.map((n,i)=>({label:n.l.replace(/^\([-+=/ ]+\)\s*/,''),data:MA.map((m,j)=>has[j]?Math.abs(val(lj,n.id,m)):null),borderColor:PAL[i%PAL.length],backgroundColor:PAL[i%PAL.length],tension:.3}));
   chart('c7',ds.some(d=>d.data.some(v=>v))?{type:'line',data:{labels:LB,datasets:ds},options:base}:null);
+  if(isCons()){const A=indic('L1',ms),Bx=indic('L2',ms);
+    const it=[['Faturamento','rb'],['CMV','cmv'],['Margem contrib.','mc'],['Despesas fixas','dop'],['EBITDA','ebitda'],['Lucro líquido','ll'],['Geração de caixa','gc']];
+    chart('c8',{type:'bar',data:{labels:it.map(x=>x[0]),datasets:[{label:'Loja 01',data:it.map(x=>A[x[1]]),backgroundColor:OR},{label:'Loja 02',data:it.map(x=>Bx[x[1]]),backgroundColor:DK}]},options:{...base,scales:{x:{offset:true,grid:{offset:true}},y:{ticks:{callback:v=>v.toLocaleString('pt-BR')}}}}});
+    const ip=[['CMV %','cmvP'],['Deduções %','dedP'],['Margem contrib. %','mcP'],['Desp. fixas %','dopP'],['EBITDA %','ebP'],['Lucro líquido %','llP']];
+    chart('c9',{type:'bar',data:{labels:ip.map(x=>x[0]),datasets:[{label:'Loja 01',data:ip.map(x=>A[x[1]]),backgroundColor:OR},{label:'Loja 02',data:ip.map(x=>Bx[x[1]]),backgroundColor:DK}]},options:{...pctOpt,scales:{x:{offset:true,grid:{offset:true}},y:{ticks:{callback:v=>(v*100).toFixed(0)+'%'}}}}});
+    const f1=MA.map(m=>temDados('L1',m)?val('L1','rb',m):null),f2=MA.map(m=>temDados('L2',m)?val('L2','rb',m):null);
+    chart('c10',{type:'line',data:{labels:LB,datasets:[{label:'Loja 01',data:f1,borderColor:OR,backgroundColor:OR,tension:.3},{label:'Loja 02',data:f2,borderColor:DK,backgroundColor:DK,tension:.3}]},options:base});}
 }
 
 /* ================= DRE ================= */
 const COL=JSON.parse(localStorage.getItem(KEY+'_col')||'null')||Object.fromEntries(FLAT.filter(n=>n.t==='grp'&&n.lvl>0||['cmp','dop','prov'].includes(n.id)).map(n=>[n.id,1]));
 function saveCol(){localStorage.setItem(KEY+'_col',JSON.stringify(COL));}
 function visivel(n){const f=fSet();if(f.has(n.id))return true;let p=n.parent;while(p){if(COL[p])return false;if(f.has(p))return true;p=NODE[p].parent;}return true;}
+function renderDREComp(){const dm=mesesComDados('CONS'),av=$('#optAV').checked;
+  $('#dreWarn').innerHTML=warnHTML()+(dm.length?`<div class="banner info">Comparativo do período <b>${perTxt()}</b> · ${dm.length} mês(es) com dados. Desmarque "Comparativo por loja" para ver o consolidado mês a mês.</div>`:'');
+  let h='<thead><tr><th>Plano de contas</th>';
+  LJS.forEach(([k,n])=>{h+=`<th>${n}</th>`;if(av)h+='<th>AV%</th>';});
+  h+='<th>Dif. Loja 01 − Loja 02 (R$)</th>'+(av?'<th>Dif. AV% (p.p.)</th>':'')+'<th>Part. Loja 01</th></tr></thead><tbody>';
+  if(!dm.length){$('#dreT').innerHTML=h+`<tr><td colspan="12" class="empty">Sem dados no período ${perTxt()}.</td></tr></tbody>`;return;}
+  const rb={};LJS.forEach(([k])=>rb[k]=valP(k,'rb',dm));
+  for(const n of FLAT){if(!naCat(n)||!visivel(n))continue;
+    const cls=n.t==='calc'?'calc'+(n.big?' big':''):n.t==='grp'?'grp':n.t==='inp'?'inp':'lf';
+    const tg=n.t==='grp'?`<span class="tog">${COL[n.id]?'▸':'▾'}</span>`:'<span class="tog"></span>';
+    h+=`<tr class="${cls}" data-id="${n.id}"><td class="lb" style="padding-left:${8+n.lvl*16}px" title="${esc(n.l)}">${tg}${esc(n.l)}${n.neg?' <span class="small">(−)</span>':''}</td>`;
+    const v={};LJS.forEach(([k])=>{v[k]=valP(k,n.id,dm);h+=`<td class="n${v[k]<0?' neg':''}">${v[k]||n.t!=='leaf'?fR(v[k]):''}</td>`;if(av)h+=`<td class="p">${rb[k]&&v[k]?fP(v[k]/rb[k]):''}</td>`;});
+    const d=v.L1-v.L2,pa=rb.L1&&rb.L2?(v.L1/rb.L1-v.L2/rb.L2)*100:null;
+    h+=`<td class="n${d<0?' neg':''}">${d||n.t!=='leaf'?fR(d):''}</td>`;
+    if(av)h+=`<td class="p">${pa!=null&&(v.L1||v.L2)?(pa>0?'+':'')+fN(pa,1):''}</td>`;
+    h+=`<td class="p">${v.CONS&&n.t!=='inp'?fP(v.L1/v.CONS):''}</td></tr>`;}
+  $('#dreT').innerHTML=h+'</tbody>';}
 function renderDRE(){
+  if(modoComp())return renderDREComp();
   const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj),av=$('#optAV').checked,ah=$('#optAH').checked;
   $('#dreWarn').innerHTML=warnHTML();
   let h='<thead><tr><th>Plano de contas</th>';
@@ -752,7 +790,7 @@ function detalhe(id,m){const lj=ST.loja;const ls=lj==='CONS'?['L1','L2']:[lj];
   ${lj==='CONS'?'':`<div class="row" style="margin-top:14px"><label>Ajuste manual (soma ao importado; use negativo para reduzir) <input class="in" id="manIn" value="${manV?fR(manV):''}" style="width:150px"></label><button class="btn" id="manOk">Salvar</button></div>`}
   <div class="row" style="margin-top:10px"><button class="btn ghost" onclick="closeModal()">Fechar</button></div>`);
   const b=$('#manOk');if(b)b.onclick=()=>{const v=parseNum($('#manIn').value);const k=id+'|'+m;if(v)ST.lojas[lj].manuais[k]=v;else delete ST.lojas[lj].manuais[k];save();closeModal();renderDRE();};}
-$('#dreXls').onclick=()=>{const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
+$('#dreXls').onclick=()=>{if(modoComp())return xlsComp();const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
   const aoa=[['DRE Gerencial — Agropecuária Agromeyer — '+nomeLoja()+' — '+perTxt()+(ST.cat.length?' — categorias filtradas':'')],[],['Plano de contas',...MA.flatMap(m=>[ML(m),'AV%']),'Total','AV%','Média']];
   for(const n of FLAT){if(!naCat(n))continue;const row=['  '.repeat(n.lvl)+n.l];
     MA.forEach(m=>{const has=dm.includes(m);const v=has?val(lj,n.id,m):null;const rb=has?val(lj,'rb',m):0;row.push(has?+v.toFixed(2):null,has&&rb?+(v/rb).toFixed(4):null);});
@@ -760,12 +798,23 @@ $('#dreXls').onclick=()=>{const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
   const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:55}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'DRE');
   XLSX.writeFile(wb,`DRE_Agromeyer_${nomeLoja().replace(/\s/g,'_')}_${ST.per.de}_a_${ST.per.ate}.xlsx`);};
 
+function xlsComp(){const dm=mesesComDados('CONS');if(!dm.length){alert('Sem dados no período.');return;}
+  const aoa=[['DRE Gerencial — Agropecuária Agromeyer — Comparativo Loja 01 × Loja 02 — '+perTxt()],[],['Plano de contas','Loja 01','AV%','Loja 02','AV%','Consolidado','AV%','Dif. Loja 01 − Loja 02','Dif. AV% (p.p.)']];
+  const rb={};LJS.forEach(([k])=>rb[k]=valP(k,'rb',dm));
+  for(const n of FLAT){if(!naCat(n))continue;const row=['  '.repeat(n.lvl)+n.l];const v={};
+    LJS.forEach(([k])=>{v[k]=valP(k,n.id,dm);row.push(+v[k].toFixed(2),rb[k]?+(v[k]/rb[k]).toFixed(4):null);});
+    row.push(+(v.L1-v.L2).toFixed(2),rb.L1&&rb.L2?+((v.L1/rb.L1-v.L2/rb.L2)*100).toFixed(2):null);aoa.push(row);}
+  const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:55}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Comparativo');
+  XLSX.writeFile(wb,`DRE_Agromeyer_Comparativo_${ST.per.de}_a_${ST.per.ate}.xlsx`);}
 /* ================= INDICADORES ================= */
-function renderInd(){const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
-  const X=MA.map(m=>dm.includes(m)?indic(lj,[m]):null);const T=dm.length?indic(lj,dm):null;
-  const R=(lb,f,fmt,cls='')=>`<tr class="${cls}"><td class="lb">${lb}</td>${X.map(x=>`<td class="n">${x?fmt(f(x))??'':''}</td>`).join('')}<td class="n"><b>${T?fmt(f(T))??'':''}</b></td></tr>`;
-  const H=t=>`<tr class="calc"><td class="lb">${t}</td>${MA.map(()=>'<td></td>').join('')}<td></td></tr>`;
-  let h=`<thead><tr><th>Indicador</th>${MA.map(m=>`<th>${ML(m)}</th>`).join('')}<th>Acumulado</th></tr></thead><tbody>`;
+function renderInd(){const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);const comp=modoComp();
+  let X,T,heads;
+  if(comp){heads=LJS.map(x=>x[1]);X=dm.length?LJS.map(([k])=>indic(k,dm)):LJS.map(()=>null);T=undefined;}
+  else{heads=MA.map(ML).concat(['Acumulado']);X=MA.map(m=>dm.includes(m)?indic(lj,[m]):null);T=dm.length?indic(lj,dm):null;}
+  $('#indTit').innerHTML=(comp?'Indicadores — comparativo por loja · '+perTxt():'Indicadores mensais — '+nomeLoja());
+  const R=(lb,f,fmt,cls='')=>`<tr class="${cls}"><td class="lb">${lb}</td>${X.map((x,i)=>`<td class="n">${comp&&i===2?'<b>':''}${x?fmt(f(x))??'':''}${comp&&i===2?'</b>':''}</td>`).join('')}${comp?'':`<td class="n"><b>${T?fmt(f(T))??'':''}</b></td>`}</tr>`;
+  const H=t=>`<tr class="calc"><td class="lb">${t}</td>${heads.map(()=>'<td></td>').join('')}</tr>`;
+  let h=`<thead><tr><th>Indicador</th>${heads.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>`;
   if(ST.cat.length){h+=H('CATEGORIAS FILTRADAS');ST.cat.forEach(id=>{const lb=esc(NODE[id].l.replace(/^\([-+=/ ]+\)\s*/,''));h+=R(lb+' (R$)',x=>x.cat[id],fR,'grp')+R(lb+' (% fat.)',x=>dv(x.cat[id],x.rb),fP)+R(lb+' (AH% mês ant.)',x=>x.catAH?x.catAH[id]:null,fP);});}
   h+=H('FATURAMENTO')+R('Faturamento (receita bruta)',x=>x.rb,fR)+R('Dias trabalhados',x=>x.dias,v=>fN(v,0))+R('Faturamento médio diário',x=>x.fatDia,fR)+R('Nº de vendas',x=>x.vendas,v=>fN(v,0))+R('Ticket médio',x=>x.ticket,fR);
   h+=H('CUSTOS VARIÁVEIS')+R('Deduções (impostos, taxas, variáveis)',x=>x.ded,fR)+R('Deduções %',x=>x.dedP,fP)+R('Compras de mercadorias',x=>x.cmp,fR)+R('CMV',x=>x.cmv,fR)+R('CMV %',x=>x.cmvP,fP)+R('Margem de contribuição',x=>x.mc,fR,'grp')+R('Margem de contribuição %',x=>x.mcP,fP,'grp');
