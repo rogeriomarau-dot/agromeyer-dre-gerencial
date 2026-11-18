@@ -187,6 +187,9 @@ body.cons .cons-only.blk{display:block!important}
     <div class="row" style="justify-content:space-between"><h2 id="indTit">Indicadores mensais — <span class="lojaNome"></span></h2><div class="row noprint"><label class="cmpt cons-only"><input type="checkbox" class="optCmp"> Comparativo por loja</label><span class="qrel" data-q="ind"></span></div></div>
     <p class="sub">Todos calculados a partir dos dados importados e dos dados complementares. Meses sem dados ficam em branco.</p>
     <div class="tw"><table id="indT"></table></div>
+    <div class="card" style="margin-top:16px"><h3>Margem por linha de produto — custo das vendas do ERP</h3>
+      <p class="small" id="margSub" style="margin-top:-4px"></p>
+      <div class="tw" style="max-height:none"><table id="margT"></table></div></div>
     <div class="card" style="margin-top:16px">
       <h3>Fórmulas utilizadas</h3>
       <div class="small" style="line-height:1.7">
@@ -238,6 +241,7 @@ body.cons .cons-only.blk{display:block!important}
         <label>Mês de referência (se não houver data) <select id="mesFix" class="in"></select></label>
         <button class="btn" id="btnProc">Processar arquivo</button>
       </div>
+      <label class="small" id="custoWrap" style="display:none;margin-top:10px"><input type="checkbox" id="optCusto" checked> Importar também o <b>custo das vendas</b> de cada seção (Total bruto − Lucro), para o CMV pelo ERP e a análise de margem por seção</label>
       <div id="perInfo"></div>
       <p class="small" style="margin-top:10px">Linhas sem conta, ou com conta começando por "Total"/"Resultado", são ignoradas. Os valores são lidos em módulo (positivos); o DRE aplica o sinal de cada linha.</p>
     </div>
@@ -286,6 +290,11 @@ body.cons .cons-only.blk{display:block!important}
   <section class="sec" id="s-comp">
     <h2>Dados complementares — <span class="lojaNome"></span></h2>
     <p class="sub">Informações que não vêm do DRE, necessárias para CMV, estoque e endividamento. O estoque inicial em branco assume o estoque final do mês anterior.</p>
+    <div class="card" id="cmvCard" style="padding:12px 16px">
+      <div class="row"><b>Método de cálculo do CMV</b>
+        <select class="in only-loja" id="cmvMet"><option value="auto">Automático — estoque quando EI e EF estiverem informados; senão custo das vendas do ERP; senão compras</option><option value="est">Sempre pelo estoque — EI + compras − EF</option><option value="erp">Sempre pelo custo das vendas do ERP (Total bruto − Lucro)</option></select>
+        <span class="small cons-only">No Consolidado, cada loja usa o seu próprio método.</span></div>
+    </div>
     <div class="tw"><table id="compT"></table></div>
   </section>
 
@@ -298,6 +307,7 @@ body.cons .cons-only.blk{display:block!important}
         <label class="fld"><input type="checkbox" class="rSel" value="painel" checked> <b>Painel</b> — indicadores-chave e gráficos</label>
         <label class="fld"><input type="checkbox" class="rSel" value="dre" checked> <b>DRE</b> <span class="small">(no Consolidado com "Comparativo por loja" ligado, sai o comparativo)</span></label>
         <label class="fld"><input type="checkbox" class="rSel" value="ind" checked> <b>Indicadores</b></label>
+        <label class="fld"><input type="checkbox" class="rSel" value="marg" checked> <b>Margem por linha de produto</b> (vendas × custo do ERP, por seção)</label>
         <label class="fld"><input type="checkbox" class="rSel" value="comp"> <b>Comparativo Loja 01 × Loja 02</b> (DRE lado a lado)</label>
         <label class="fld"><input type="checkbox" class="rSel" value="compl"> <b>Dados complementares</b> (dias, vendas, estoques, dívida)</label>
         <label class="fld only-loja"><input type="checkbox" class="rSel" value="map"> <b>De-para de contas</b> (contas do ERP × linhas do DRE)</label>
@@ -351,11 +361,11 @@ const L=(id,l,o={})=>({id,l,t:'leaf',...o});
 const G=(id,l,ch,o={})=>({id,l,t:'grp',ch,...o});
 const C=(id,l,f,o={})=>({id,l,t:'calc',f,...o});
 const I=(id,l,o={})=>({id,l,t:'inp',...o});
+// categorias no formato das seções do ERP da Agromeyer (Relatório Geral de Vendas)
 const catRec=p=>[
-  G(p+'caes','Rações cães',[L(p+'c_sp','Super premium'),L(p+'c_p','Premium'),L(p+'c_pe','Premium especial'),L(p+'c_md','Medicamentosa')]),
-  G(p+'gatos','Rações gatos',[L(p+'g_sp','Super premium'),L(p+'g_p','Premium'),L(p+'g_pe','Premium especial'),L(p+'g_md','Medicamentosa')]),
-  L(p+'farm','Farmácia'),L(p+'aces','Acessórios'),L(p+'aqua','Aquarismo'),L(p+'pass','Pássaros/roedores'),
-  L(p+'pet','Petiscos'),L(p+'cos','Cosméticos'),L(p+'jar','Jardinagem'),L(p+'out','Outros')];
+  G(p+'racoes','Rações',[L(p+'rac','Rações (geral)'),L(p+'rcao','Rações cão'),L(p+'rgato','Rações gato'),L(p+'umid','Úmidos e sachês'),L(p+'rmed','Rações medicamentosas')]),
+  L(p+'farm','Farmácia e medicamentos'),L(p+'aces','Acessórios'),L(p+'pet','Petiscos e biscoitos'),L(p+'hig','Higiene e areia'),L(p+'cos','Cosméticos e banho'),
+  L(p+'prag','Controle de pragas'),L(p+'jar','Jardinagem'),L(p+'aqua','Aquarismo'),L(p+'pass','Pássaros/roedores'),L(p+'out','Outros / diversos')];
 function baseEstr(){const E=[
   G('rec','(+) RECEITAS OPERACIONAIS',catRec('r_')),
   L('perdas','(-) Perdas de produtos (validade/outros)',{top:1}),
@@ -367,7 +377,8 @@ function baseEstr(){const E=[
   G('cmp','COMPRAS DE MERCADORIAS',catRec('c_').map(n=>({...n,l:n.l}))),
   I('ei','Estoque inicial'),
   I('ef','Estoque final'),
-  C('cmv','(-) CMV — CUSTO DA MERCADORIA VENDIDA',V=>V('ei')+V('cmp')-V('ef')),
+  I('cmverp','Custo das vendas informado pelo ERP (Total bruto − Lucro)'),
+  C('cmv','(-) CMV — CUSTO DA MERCADORIA VENDIDA',(V,c)=>cmvCalc(V,c)),
   C('mc','(=) MARGEM DE CONTRIBUIÇÃO (LUCRO BRUTO)',V=>V('rb')-V('ded')-V('cmv'),{big:1}),
   G('dop','(-) DESPESAS OPERACIONAIS (FIXAS)',[
     G('pes','Despesas com pessoal',[L('p_sal','Salários'),L('p_adi','Adiantamento de salários'),L('p_fgts','FGTS s/ folha de pagamento'),L('p_fgtsr','FGTS rescisório'),L('p_resc','Rescisões'),L('p_fer','Férias'),L('p_13','13º salário'),L('p_inse','INSS empresa'),L('p_insf','INSS funcionários'),L('p_irrf','DARF IR s/ folha de pagamento'),L('p_vt','Vale transporte'),L('p_ali','Alimentação funcionário'),L('p_uni',"Uniformes e EPI's"),L('p_conf','Confraternizações'),L('p_bon','Bonificação'),L('p_med','Medicina do trabalho'),L('p_cur','Cursos')]),
@@ -431,12 +442,12 @@ const MS=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez
 const KEY='agromeyer_dre_v1';          // dados antigos (somente navegador) — usados para migração
 const PKEY='agromeyer_dre_prefs';      // preferências deste computador (loja, filtros)
 const EMP='agromeyer';                 // documento da empresa no Firestore
-const LF=['nome','depara','nomes','manuais','compl','preset']; // campos do documento de cada loja
-const novaLoja=n=>({nome:n,depara:{},nomes:{},lotes:[],manuais:{},compl:{},preset:null});
+const LF=['nome','depara','nomes','manuais','compl','preset','cmvMet']; // campos do documento de cada loja
+const novaLoja=n=>({nome:n,depara:{},nomes:{},lotes:[],manuais:{},compl:{},preset:null,cmvMet:'auto'});
 let ST;
 function normST(){
   if(!ST||!ST.lojas)ST={lojas:{}};
-  for(const k of ['L1','L2']){if(!ST.lojas[k])ST.lojas[k]=novaLoja(k==='L1'?'Loja 01':'Loja 02');const lo=ST.lojas[k];for(const f of ['depara','nomes','manuais','compl'])if(!lo[f]||typeof lo[f]!=='object')lo[f]={};if(!Array.isArray(lo.lotes))lo.lotes=[];if(lo.preset===undefined)lo.preset=null;}
+  for(const k of ['L1','L2']){if(!ST.lojas[k])ST.lojas[k]=novaLoja(k==='L1'?'Loja 01':'Loja 02');const lo=ST.lojas[k];for(const f of ['depara','nomes','manuais','compl'])if(!lo[f]||typeof lo[f]!=='object')lo[f]={};if(!Array.isArray(lo.lotes))lo.lotes=[];if(lo.preset===undefined)lo.preset=null;if(!lo.cmvMet)lo.cmvMet='auto';}
   if(!ST.plano)ST.plano=planoVazio();
   if(!ST.loja)ST.loja='L1';
   const y=ST.ano||new Date().getFullYear();
@@ -484,7 +495,7 @@ function escutaNuvem(){return new Promise(res=>{const {db,fs}=FBX;const faltam=n
   for(const k of ['L1','L2']){
     SYNC.unsub.push(fs.onSnapshot(fs.doc(db,'empresas',EMP,'lojas',k),snap=>{SYNC.existe[k]=snap.exists();
       if(!snap.metadata.hasPendingWrites&&snap.exists()){const d=snap.data();const lo=ST.lojas[k];let mud=false;const nv={...(SYNC.lojas[k]||{})};
-        for(const f of LF){const j=stable(d[f]??null);if(nv[f]!==j){nv[f]=j;lo[f]=d[f]??(f==='preset'?null:f==='nome'?lo.nome:{});mud=true;}}
+        for(const f of LF){const j=stable(d[f]??null);if(nv[f]!==j){nv[f]=j;lo[f]=d[f]??(f==='preset'?null:f==='nome'?lo.nome:f==='cmvMet'?'auto':{});mud=true;}}
         SYNC.lojas[k]=nv;normST();if(mud)remotoMudou();}
       pronto(k);},erro(k)));
     SYNC.unsub.push(fs.onSnapshot(fs.collection(db,'empresas',EMP,'lojas',k,'lotes'),qs=>{
@@ -562,10 +573,12 @@ function parseMes(x){if(x==null||x==='')return null;
 let AGG={},MEMO={};
 function invalid(){AGG={};MEMO={};}
 function agg(lj){if(AGG[lj])return AGG[lj];
-  const o={leaf:{},pend:{},contas:{},src:{}};
+  const o={leaf:{},pend:{},contas:{},src:{},custo:{},porConta:{}};
   const lo=ST.lojas[lj];
   for(const lt of lo.lotes)for(const it of lt.itens){
-    const k=it.c;o.contas[k]=(o.contas[k]||0)+it.v;
+    const k=it.c;(o.porConta[k]??={});o.porConta[k][it.m]=(o.porConta[k][it.m]||0)+it.v;
+    if(k.startsWith('K:')){o.custo[it.m]=(o.custo[it.m]||0)+it.v;continue;} // custo das vendas (ERP): não entra no de-para
+    o.contas[k]=(o.contas[k]||0)+it.v;
     const ln=lo.depara[k];
     if(!ln){o.pend[k]=(o.pend[k]||0)+it.v;continue;}
     if(ln==='__ign')continue;
@@ -575,6 +588,15 @@ function agg(lj){if(AGG[lj])return AGG[lj];
   }
   for(const[k,v]of Object.entries(lo.manuais)){const[ln,m]=k.split('|');if(!NODE[ln])continue;(o.leaf[ln]??={});o.leaf[ln][m]=(o.leaf[ln][m]||0)+v;}
   return AGG[lj]=o;}
+// CMV: 'est' = EI + compras − EF · 'erp' = custo das vendas do ERP · 'auto' = estoque se EI e EF informados; senão ERP; senão compras
+const metCMV=lj=>(ST.lojas[lj]&&ST.lojas[lj].cmvMet)||'auto';
+function cmvCalc(V,c){const est=V('ei')+V('cmp')-V('ef');if(!c)return est;const met=metCMV(c.lj),erp=V('cmverp');
+  if(met==='est')return est;if(met==='erp')return erp;
+  const temEst=compl(c.lj,c.ms[0],'ei')!=null&&compl(c.lj,c.ms[c.ms.length-1],'ef')!=null;
+  return temEst?est:erp>0?erp:est;}
+function cmvOrigem(lj,ms){if(lj==='CONS')return [cmvOrigem('L1',ms),cmvOrigem('L2',ms)].filter((x,i,a)=>a.indexOf(x)===i).join(' / ');
+  const met=metCMV(lj),erp=ms.reduce((s,m)=>s+val(lj,'cmverp',m),0),temEst=compl(lj,ms[0],'ei')!=null&&compl(lj,ms[ms.length-1],'ef')!=null;
+  if(met==='est'||(met==='auto'&&temEst))return 'estoque (EI + compras − EF)';if(met==='erp'||erp>0)return 'custo das vendas do ERP';return 'compras do período';}
 function compRaw(lj,m,f){const c=ST.lojas[lj].compl[m];const v=c?c[f]:null;return v===''||v==null?null:+v;}
 function compl(lj,m,f){
   if(lj==='CONS'){const a=compl('L1',m,f),b=compl('L2',m,f);if(a==null&&b==null)return null;if(f==='dias')return Math.max(a||0,b||0);return (a||0)+(b||0);}
@@ -585,12 +607,15 @@ function val(lj,id,m){const key=lj+'|'+id+'|'+m;if(key in MEMO)return MEMO[key];
   if(lj==='CONS'&&n.t==='leaf')r=val('L1',id,m)+val('L2',id,m);
   else if(n.t==='leaf'){const a=agg(lj).leaf[id];r=a&&a[m]||0;}
   else if(n.t==='grp'){for(const c of n.ch)r+=(c.neg?-1:1)*val(lj,c.id,m);}
+  else if(id==='cmverp'){if(lj==='CONS')r=val('L1',id,m)+val('L2',id,m);else{const a=agg(lj).custo;r=a[m]||0;}}
   else if(n.t==='inp'){r=compl(lj,m,id)||0;}
-  else if(n.t==='calc'){r=n.f(x=>val(lj,x,m));}
+  else if(lj==='CONS'&&id==='cmv'){r=val('L1','cmv',m)+val('L2','cmv',m);}
+  else if(n.t==='calc'){r=n.f(x=>val(lj,x,m),{lj,ms:[m]});}
   return MEMO[key]=r;}
 const valP=(lj,id,ms)=>{ // período: estoque inicial = do 1º mês, final = do último
   if(id==='ei')return val(lj,'ei',ms[0]);if(id==='ef')return val(lj,'ef',ms[ms.length-1]);
-  const n=NODE[id];if(!n)return 0;if(n.t==='calc')return n.f(x=>valP(lj,x,ms));
+  if(lj==='CONS'&&id==='cmv')return valP('L1','cmv',ms)+valP('L2','cmv',ms);
+  const n=NODE[id];if(!n)return 0;if(n.t==='calc')return n.f(x=>valP(lj,x,ms),{lj,ms});
   if(n.t==='grp'){let r=0;for(const c of n.ch)r+=(c.neg?-1:1)*valP(lj,c.id,ms);return r;}
   return ms.reduce((s,m)=>s+val(lj,id,m),0);};
 function temDados(lj,m){if(lj==='CONS')return temDados('L1',m)||temDados('L2',m);
@@ -716,7 +741,7 @@ function renderPainel(){
   const ms=dm;
   $('#pSub').textContent=`Período ${perTxt()} · ${dm.length} mês(es) com dados (de ${MLL(dm[0])} a ${MLL(dm[dm.length-1])})`;
   const x=indic(lj,ms);
-  if(!x.temEst)$('#pWarn').insertAdjacentHTML('beforeend','<div class="banner info">ℹ️ Estoque inicial/final não informado no período — o CMV está sendo calculado só pelas compras e os indicadores de estoque ficam em branco. Preencha em <b>Dados complementares</b>.</div>');
+  {const org=cmvOrigem(lj,ms);$('#pWarn').insertAdjacentHTML('beforeend',`<div class="banner info">ℹ️ CMV calculado pelo <b>${org}</b>.${!x.temEst?' Estoque inicial/final não informado — os indicadores de estoque ficam em branco (preencha em <b>Dados complementares</b>).':''}</div>`);}
   const k=(t,v,s,c)=>`<div class="kpi" ${c?`style="border-left-color:${c}"`:''}><div class="t">${t}</div><div class="v">${v}</div><div class="s">${s||''}</div></div>`;
   const cor=v=>v==null?null:v<0?RD:GN;
   let kp=[
@@ -863,7 +888,25 @@ const FMT={R:fR,P:fP,N0:v=>fN(v,0),N1:v=>fN(v,1),N2:v=>fN(v,2)};
 function indCols(onlyData){const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
   if(modoComp())return{comp:true,heads:LJS.map(x=>x[1]),cols:dm.length?LJS.map(([k])=>indic(k,dm)):LJS.map(()=>null),total:undefined};
   const ms=onlyData?dm:MA;return{comp:false,heads:ms.map(ML).concat(['Acumulado']),cols:ms.map(m=>dm.includes(m)?indic(lj,[m]):null),total:dm.length?indic(lj,dm):null};}
-function renderInd(){const C=indCols(false),comp=C.comp;
+// margem por linha do DRE e por seção do ERP (vendas importadas com custo)
+function margem(lj,ms){const ls=lj==='CONS'?['L1','L2']:[lj];const G={};let tv=0,tc=0;
+  for(const l of ls){const lo=ST.lojas[l],a=agg(l);
+    for(const k in a.porConta){if(!k.startsWith('V:'))continue;const ln=lo.depara[k];if(!ln||ln==='__ign'||!NODE[ln])continue;
+      const v=ms.reduce((s,m)=>s+(a.porConta[k][m]||0),0);const kc='K:'+k.slice(2);const temC=!!a.porConta[kc];const c=temC?ms.reduce((s,m)=>s+(a.porConta[kc][m]||0),0):null;if(!v&&!c)continue;
+      const g=(G[ln]??={ln,v:0,c:0,semC:0,secs:{}});g.v+=v;if(c!=null)g.c+=c;else g.semC+=v;
+      const nm=lo.nomes[k]||k.slice(2);const sc=(g.secs[nm]??={nome:nm,v:0,c:0,semC:0});sc.v+=v;if(c!=null)sc.c+=c;else sc.semC+=v;tv+=v;if(c!=null)tc+=c;}}
+  const L=Object.values(G).sort((a,b)=>b.v-a.v);L.forEach(g=>g.secs=Object.values(g.secs).sort((a,b)=>b.v-a.v));return{L,tv,tc};}
+function margemRows(lj,ms){const M=margem(lj,ms);if(!M.L.length)return null;const rows=[];
+  const mk=(lb,lvl,s_,v,c,semC)=>{const temC=v-semC>0;const cc=temC?c:null;const lu=temC?(v-semC)-c:null;
+    return{lb,lvl,s:s_,c:[cel(v),cel(M.tv?v/M.tv:null,'P'),cel(cc),cel(lu),cel(temC?lu/(v-semC):null,'P'),cel(temC&&c?lu/c:null,'P')]};};
+  M.L.forEach(g=>{rows.push(mk(fullLabel(g.ln).split(' › ').slice(1).join(' › ')||NODE[g.ln].l,0,'grp',g.v,g.c,g.semC));g.secs.forEach(x=>rows.push(mk(x.nome,1,'lf',x.v,x.c,x.semC)));});
+  rows.push(mk('TOTAL',0,'calc',M.tv,M.tc,M.L.reduce((s,g)=>s+g.semC,0)));
+  return{head:['Linha do DRE / seção do ERP','Venda','Part. %','Custo (ERP)','Lucro','Margem %','Markup %'],rows};}
+function renderMarg(){const lj=ST.loja,dm=mesesComDados(lj);const T=dm.length?margemRows(lj,dm):null;
+  $('#margSub').textContent=T?`${nomeLoja()} · ${perTxt()} · margem = lucro ÷ venda · markup = lucro ÷ custo. Seções com margem negativa indicam custo cadastrado errado no ERP.`:'Importe o Relatório Geral de Vendas do ERP (tipo "Vendas por seção", com a opção de custo marcada) para ver a margem por linha de produto.';
+  if(!T){$('#margT').innerHTML='';return;}
+  $('#margT').innerHTML=`<thead><tr>${T.head.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>`+T.rows.map(r=>`<tr class="${r.s}"><td class="lb" style="padding-left:${8+r.lvl*18}px">${esc(r.lb)}</td>${r.c.map((c,i)=>`<td class="n ${c.v<0?'neg':''}">${fmtCel(c)}${i===4&&c.v<0?' ⚠️':''}</td>`).join('')}</tr>`).join('')+'</tbody>';}
+function renderInd(){renderMarg();const C=indCols(false),comp=C.comp;
   $('#indTit').innerHTML=(comp?'Indicadores — comparativo por loja · '+perTxt():'Indicadores mensais — '+nomeLoja());
   let h=`<thead><tr><th>Indicador</th>${C.heads.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>`;
   for(const r of indSpec()){
@@ -925,13 +968,23 @@ function setHdr(){const hr=Math.max(1,+$('#hdrRow').value)-1;let hdr=(IMP.aoa[hr
       :`<div class="banner" style="margin-top:10px">⚠️ O relatório abrange <b>${mp[1]} a ${mp[2]}</b> (mais de um mês) e não tem coluna de data. Os valores serão lançados todos no mês escolhido em "Mês de referência". O ideal é exportar do ERP <b>um mês por vez</b>.</div>`;}}
   if(IMP.alinhado)pi+='<div class="small" style="margin-top:6px">ℹ️ Os títulos das colunas estavam deslocados em relação aos valores no arquivo do ERP; o alinhamento foi corrigido automaticamente.</div>';
   $('#perInfo').innerHTML=pi;
+  IMP.colLucro=IMP.hdr.findIndex(h=>/^LUCRO/.test(norm(h)));custoVis();
   modeVis();$('#colCard').style.display='';$('#prevCard').style.display='none';}
+function custoVis(){$('#custoWrap').style.display=IMP&&$('#tipoRel').value==='V'&&IMP.colLucro>-1?'block':'none';}
+$('#tipoRel').onchange=custoVis;
 function modeVis(){const two=$('#valMode').value==='2';$('#lbVal').style.display=two?'none':'';$('#lbDeb').style.display=two?'':'none';$('#lbCred').style.display=two?'':'none';}
 $('#valMode').onchange=modeVis;
 // sinônimos usuais de seções de agropecuária/pet shop → sufixo da conta (r_ para vendas, c_ para compras)
-const SIN={FARMACIA:'farm',MEDICAMENTOS:'farm',MEDICAMENTO:'farm',ACESSORIO:'aces',ACESSORIOS:'aces','COLEIRAS E GUIAS':'aces',POTES:'aces',BRINQUEDOS:'aces','CAMA E ALMOFADA':'aces','CASINHAS PET':'aces',ARRANHADOR:'aces','BEBEDOURO EM GERAL':'aces','POTES E BEBEDOR':'aces','ESCOVAS PENTE':'aces',
-  AQUARISMO:'aqua',PEIXES:'aqua','ROEDORES PASSAROS':'pass',PASSAROS:'pass',HAMESTER:'pass',ROEDORES:'pass',PETISCOS:'pet','PETISCOS GATO':'pet','PETISCO CAO':'pet',BISCOITOS:'pet',
-  COSMETICOS:'cos',SHAMPOO:'cos',PERFUME:'cos',TALCO:'cos',JARDIM:'jar',JARDINAGEM:'jar',TERRA:'jar',SEMENTE:'jar',SEMENTES:'jar'};
+const SIN={RACAO:'rac',RACOES:'rac','RACAO CAO':'rcao','RACAO CAES':'rcao','RACAO GATO':'rgato','RACAO GATOS':'rgato',UMIDOS:'umid','SACHE GATOS':'umid',SACHE:'umid',SACHES:'umid',MEDICAMENTOSA:'rmed',
+  FARMACIA:'farm',MEDICAMENTOS:'farm',MEDICAMENTO:'farm','ROUPA CIRURGICA':'farm','ROUPA CIR GICA':'farm',
+  ACESSORIO:'aces',ACESSORIOS:'aces','COLEIRAS E GUIAS':'aces',POTES:'aces',BRINQUEDOS:'aces','CAMA E ALMOFADA':'aces','CASINHAS PET':'aces',ARRANHADOR:'aces','BEBEDOURO EM GERAL':'aces','POTES E BEBEDOR':'aces','ESCOVAS PENTE':'aces',
+  PETISCOS:'pet','PETISCOS GATO':'pet','PETISCO CAO':'pet',BISCOITOS:'pet',
+  HIGIENE:'hig','AREIA DE GATO':'hig','TAPETE HIGIENICO':'hig','EDUCADOR SANITARIO':'hig',DESINFETANTE:'hig','ATRATIVO GATO':'hig',
+  COSMETICOS:'cos',SHAMPOO:'cos',PERFUME:'cos',TALCO:'cos',
+  VENENO:'prag',INCETICIDA:'prag',INSETICIDA:'prag',RATOEIRA:'prag',
+  JARDIM:'jar',JARDINAGEM:'jar',TERRA:'jar',SEMENTE:'jar',SEMENTES:'jar',
+  AQUARISMO:'aqua',PEIXES:'aqua','ROEDORES PASSAROS':'pass',PASSAROS:'pass',HAMESTER:'pass',ROEDORES:'pass',
+  GERAL:'out','5':'out','SECAO NAO CADASTRADA':'out',DIVERSOS:'out',BEBIDAS:'out'};
 function sugerir(nomeERP,tipo){const n=norm(nomeERP);if(!n)return null;let best=null,bl=0;
   const raiz=tipo==='V'?'rec':tipo==='C'?'cmp':null;
   if(raiz&&SIN[n]){const id=(tipo==='V'?'r_':'c_')+SIN[n];if(NODE[id])return id;}
@@ -943,24 +996,27 @@ function sugerir(nomeERP,tipo){const n=norm(nomeERP);if(!n)return null;let best=
   return best;}
 $('#btnProc').onclick=()=>{const tipo=$('#tipoRel').value,pref=tipo==='D'?'':tipo+':';IMP.tipo=tipo;const hr=IMP.hr,cC=+$('#colConta').value,two=$('#valMode').value==='2',cV=+$('#colVal').value,cD=+$('#colDeb').value,cCr=+$('#colCred').value,cDt=$('#colData').value,mf=$('#mesFix').value;
   if(cDt===''&&!mf){alert('Selecione a coluna de data ou o mês de referência.');return;}
-  const ac={};let lidas=0,ign=0,semMes=0;
+  const ac={},cus={};let lidas=0,ign=0,semMes=0;const useC=tipo==='V'&&IMP.colLucro>-1&&$('#optCusto').checked;
   for(const r of IMP.aoa.slice(hr+1)){if(!r)continue;const conta=r[cC];const cn=norm(conta);
     if(!cn||/^(TOTAL|RESULTADO|SUBTOTAL|SALDO)/.test(cn)){ign++;continue;}
     let v;if(two){const d=parseNum(r[cD]),c=parseNum(r[cCr]);v=Math.abs(d||0)||Math.abs(c||0);}else v=Math.abs(parseNum(r[cV])||0);
     if(!v){ign++;continue;}
     let m=cDt!==''?parseMes(r[+cDt]):null;if(!m)m=mf||null;if(!m){semMes++;continue;}
-    const k=pref+cn;(ac[k]??={nome:String(conta).trim(),m:{}});ac[k].m[m]=(ac[k].m[m]||0)+v;lidas++;}
+    const k=pref+cn;(ac[k]??={nome:String(conta).trim(),m:{}});ac[k].m[m]=(ac[k].m[m]||0)+v;lidas++;
+    if(useC){const lu=parseNum(r[IMP.colLucro]);if(lu!=null){const kc='K:'+cn;(cus[kc]??={nome:String(conta).trim(),m:{}});cus[kc].m[m]=(cus[kc].m[m]||0)+(v-lu);}}}
+  IMP.custo=cus;
   const lo=ST.lojas[ST.loja];
   lo.preset={sig:IMP.hdr.join('|'),conta:cC,mode:two?'2':'1',val:cV,deb:cD,cred:cCr,data:cDt,tipo};save();
   IMP.ac=ac;const ks=Object.keys(ac).sort((a,b)=>ac[a].nome.localeCompare(ac[b].nome));
   if(!ks.length){alert('Nenhuma linha válida encontrada. Confira as colunas escolhidas.');return;}
   const meses=[...new Set(ks.flatMap(k=>Object.keys(ac[k].m)))].sort();IMP.meses=meses;
   const opts=leafOptions();
-  let h=`<thead><tr><th>Conta no ERP</th><th>Meses</th><th>Total</th><th style="text-align:left">Linha do DRE</th><th>Situação</th></tr></thead><tbody>`;
+  const temC=Object.keys(cus).length>0;
+  let h=`<thead><tr><th>Conta no ERP</th><th>Meses</th><th>Total</th>${temC?'<th>Custo (ERP)</th><th>Margem</th>':''}<th style="text-align:left">Linha do DRE</th><th>Situação</th></tr></thead><tbody>`;
   let novos=0;
   for(const k of ks){const a=ac[k],cur=lo.depara[k];const sug=cur||sugerir(a.nome,tipo);if(!cur)novos++;
     const tot=Object.values(a.m).reduce((s,x)=>s+x,0);
-    h+=`<tr data-k="${esc(k)}"><td>${esc(a.nome)}</td><td class="n small">${Object.keys(a.m).sort().map(m=>MS[+m.slice(5)-1]+'/'+m.slice(2,4)).join(', ')}</td><td class="n">${fR(tot)}</td>
+    h+=`<tr data-k="${esc(k)}"><td>${esc(a.nome)}</td><td class="n small">${Object.keys(a.m).sort().map(m=>MS[+m.slice(5)-1]+'/'+m.slice(2,4)).join(', ')}</td><td class="n">${fR(tot)}</td>${temC?(()=>{const c=cus['K:'+k.slice(2)];const cv=c?Object.values(c.m).reduce((s,x)=>s+x,0):null;const mg=cv!=null&&tot?(tot-cv)/tot:null;return `<td class="n">${cv!=null?fR(cv):''}</td><td class="n ${mg!=null&&mg<0?'neg':''}">${mg!=null?fP(mg):''}${mg!=null&&mg<0?' ⚠️':''}</td>`;})():''}
     <td><select class="in mapsel">${opts.replace(`value="${sug}"`,`value="${sug}" selected`)}</select></td>
     <td>${cur?(cur==='__ign'?'<span class="tag ign">ignorada</span>':'<span class="tag ok">já classificada</span>'):(sug?'<span class="tag new">nova · sugerida</span>':'<span class="tag new">nova</span>')}</td></tr>`;}
   $('#prevT').innerHTML=h+'</tbody>';
@@ -984,9 +1040,11 @@ function isDesc(n,anc){let p=n.parent;while(p){if(p===anc)return true;p=NODE[p].
 $('#btnCanc').onclick=()=>{$('#prevCard').style.display='none';};
 $('#btnConf').onclick=()=>{const lo=ST.lojas[ST.loja];
   document.querySelectorAll('#prevT tbody tr').forEach(tr=>{const k=tr.dataset.k,v=tr.querySelector('select').value;if(v)lo.depara[k]=v;else delete lo.depara[k];lo.nomes[k]=IMP.ac[k].nome;});
-  if($('#optRepl').checked){const set=new Set();for(const k in IMP.ac)for(const m in IMP.ac[k].m)set.add(k+'|'+m);
+  const CUS=IMP.custo||{};
+  if($('#optRepl').checked){const set=new Set();for(const k in IMP.ac)for(const m in IMP.ac[k].m)set.add(k+'|'+m);for(const k in CUS)for(const m in CUS[k].m)set.add(k+'|'+m);
     for(const lt of lo.lotes)lt.itens=lt.itens.filter(it=>!set.has(it.c+'|'+it.m));lo.lotes=lo.lotes.filter(lt=>lt.itens.length);}
   const itens=[];for(const k in IMP.ac)for(const m in IMP.ac[k].m)itens.push({c:k,m,v:Math.round(IMP.ac[k].m[m]*100)/100});
+  for(const k in CUS){lo.nomes[k]=CUS[k].nome;for(const m in CUS[k].m)itens.push({c:k,m,v:Math.round(CUS[k].m[m]*100)/100});}
   const arq=IMP.nome+(IMP.sheet&&IMP.sheet!==IMP.nome?' ['+IMP.sheet+']':''),T=4000,np=Math.ceil(itens.length/T),t0=Date.now();
   for(let i=0;i<np;i++){const part=itens.slice(i*T,(i+1)*T); // divide arquivos muito grandes (limite de 1 MB por documento)
     lo.lotes.push({id:t0+i,arq:arq+(np>1?` (parte ${i+1}/${np})`:''),data:new Date().toISOString(),por:SYNC.user&&SYNC.user.email||'',meses:[...new Set(part.map(x=>x.m))].sort(),itens:part});}
@@ -1143,7 +1201,7 @@ async function secPainel(){const lj=ST.loja,dm=mesesComDados(lj);if(!dm.length)r
   return {tit:'Painel — indicadores-chave',sub:subt(dm.length+' mês(es) com dados'),kpis:k,imgs,serie};}
 async function montaRel(lista){const resumo=$('#rResumo').checked;const dmN=mesesComDados(ST.loja).length;const avMes=$('#rAVm').checked;const out=[];
   for(const r of lista){let x=null;
-    if(r==='painel')x=await secPainel();else if(r==='dre')x=secDRE(resumo,avMes);else if(r==='ind')x=secInd();else if(r==='comp')x=secComp(resumo);else if(r==='compl')x=secCompl();else if(r==='map')x=secMap();
+    if(r==='painel')x=await secPainel();else if(r==='dre')x=secDRE(resumo,avMes);else if(r==='ind')x=secInd();else if(r==='comp')x=secComp(resumo);else if(r==='compl')x=secCompl();else if(r==='marg'){const dm=mesesComDados(ST.loja);const T=dm.length?margemRows(ST.loja,dm):null;if(T)x={tit:'Margem por linha de produto (custo das vendas do ERP)',sub:subt(),...T};}else if(r==='map')x=secMap();
     if(x){if(x.rows&&$('#rZero').checked&&(r==='dre'||r==='comp'))x.rows=x.rows.filter(rw=>rw.s==='calc'||rw.s==='big'||rw.c.some(c=>c&&typeof c==='object'&&c.v));out.push(x);}}
   return out;}
 const NOMEREL=()=>`Agromeyer_${nomeLoja().replace(/\s/g,'')}_${ST.per.de}_a_${ST.per.ate}`;
@@ -1246,7 +1304,8 @@ document.querySelectorAll('.qrel').forEach(q=>{q.innerHTML='<button class="btn g
 
 /* ================= COMPLEMENTARES ================= */
 const CF=[['dias','Dias trabalhados',0],['vendas','Nº de vendas / atendimentos',0],['ei','Estoque inicial (R$)',2],['ef','Estoque final (R$)',2],['div','Saldo de empréstimos e financiamentos bancários (R$)',2]];
-function renderComp(){const lj=ST.loja,MA=mesesAno(),ro=isCons();
+$('#cmvMet').onchange=e=>{if(isCons())return;ST.lojas[ST.loja].cmvMet=e.target.value;save();renderComp();};
+function renderComp(){if(!isCons())$('#cmvMet').value=metCMV(ST.loja);const lj=ST.loja,MA=mesesAno(),ro=isCons();
   let h=`<thead><tr><th>Informação</th>${MA.map(m=>`<th>${ML(m)}</th>`).join('')}</tr></thead><tbody>`;
   for(const[f,lb,d]of CF){h+=`<tr><td class="lb">${lb}</td>`;
     MA.forEach(m=>{const raw=ro?compl(lj,m,f):compRaw(lj,m,f);const ph=f==='ei'&&!ro?compl(lj,m,'ei'):null;
