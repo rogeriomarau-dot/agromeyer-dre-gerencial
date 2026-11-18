@@ -45,10 +45,11 @@ input,select{font:inherit}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(480px,1fr));gap:16px}
 .chartbox{position:relative;height:300px}
 .empty{color:var(--mu);text-align:center;padding:40px 10px;font-size:13px}
-.tw{overflow:auto;max-height:calc(100vh - 220px);border:1px solid var(--ln);border-radius:10px;background:#fff}
+.tw{overflow:auto;max-height:calc(100vh - var(--hh,58px) - var(--nh,46px) - 70px);border:1px solid var(--ln);border-radius:10px;background:#fff}
+.tw.twc{max-height:none}
 table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:5px 8px;border-bottom:1px solid #eee;white-space:nowrap}
-thead th{position:sticky;top:0;background:var(--dk);color:#fff;font-weight:600;z-index:3;text-align:right}
+thead th{position:sticky;top:0;background:var(--dk);color:#fff;font-weight:600;z-index:3;text-align:right;box-shadow:0 1px 0 #000}
 thead th:first-child{text-align:left;left:0;z-index:4}
 td.n{text-align:right;font-variant-numeric:tabular-nums}
 td.p{text-align:right;color:var(--mu);font-size:11.5px}
@@ -192,7 +193,7 @@ body.cons .cons-only.blk{display:block!important}
     <div class="tw"><table id="indT"></table></div>
     <div class="card" style="margin-top:16px"><h3>Margem por linha de produto — custo das vendas do ERP</h3>
       <p class="small" id="margSub" style="margin-top:-4px"></p>
-      <div class="tw" style="max-height:none"><table id="margT"></table></div></div>
+      <div class="tw twc"><table id="margT"></table></div></div>
     <div class="card" style="margin-top:16px">
       <h3>Fórmulas utilizadas</h3>
       <div class="small" style="line-height:1.7">
@@ -228,14 +229,14 @@ body.cons .cons-only.blk{display:block!important}
         <label class="small">Agrupar por <select class="in" id="abcVn"><option value="ln">Linha do DRE</option><option value="sec">Seção do ERP</option></select></label></div>
       <div class="kpis" id="abcVk" style="margin:8px 0"></div>
       <div class="chartbox" style="height:320px"><canvas id="cA1"></canvas></div>
-      <div class="tw" style="max-height:420px;margin-top:12px"><table id="abcVt"></table></div>
+      <div class="tw twc" style="margin-top:12px"><table id="abcVt"></table></div>
     </div>
     <div class="card">
       <div class="row" style="justify-content:space-between"><h3>Despesas operacionais (fixas)</h3>
         <label class="small">Agrupar por <select class="in" id="abcDn"><option value="conta">Conta</option><option value="grp">Subgrupo</option></select></label></div>
       <div class="kpis" id="abcDk" style="margin:8px 0"></div>
       <div class="chartbox" style="height:320px"><canvas id="cA2"></canvas></div>
-      <div class="tw" style="max-height:420px;margin-top:12px"><table id="abcDt"></table></div>
+      <div class="tw twc" style="margin-top:12px"><table id="abcDt"></table></div>
     </div>
   </section>
 
@@ -1439,7 +1440,12 @@ window.fbErro=e=>{$('#lgLoad').style.display='none';
   if(emFrame)dica='Parece que o sistema foi aberto numa pré-visualização (por exemplo, dentro do chat). Baixe o arquivo e abra-o direto no Chrome, ou use o link publicado.';
   $('#lgMsg').innerHTML='Não foi possível conectar ao Firebase.<br>'+dica+'<br><span style="color:#888;font-size:11px">Detalhe técnico: '+esc(e&&(e.code||e.message)||e)+'</span>';};
 setTimeout(()=>{if(!window.FBX&&!$('#lgMsg').textContent)window.fbErro('tempo esgotado ao carregar o Firebase (15 s)');},15000);
-const setHH=()=>document.documentElement.style.setProperty('--hh',document.querySelector('header').offsetHeight+'px');addEventListener('resize',setHH);setHH();
+const setHH=()=>{const d=document.documentElement.style;d.setProperty('--hh',document.querySelector('header').offsetHeight+'px');d.setProperty('--nh',document.querySelector('nav').offsetHeight+'px');};addEventListener('resize',setHH);setHH();
+// mantém o cabeçalho das tabelas visível logo abaixo do menu ao rolar a página
+function fixaCab(){const nav=document.querySelector('nav');if(!nav)return;const lim=nav.getBoundingClientRect().bottom;
+  document.querySelectorAll('.sec.on .tw').forEach(tw=>{const ths=tw.querySelectorAll('thead th');if(!ths.length)return;const r=tw.getBoundingClientRect(),hh=ths[0].offsetHeight;
+    let d=lim-r.top;d=Math.max(0,Math.min(d,r.height-hh*2));const t=d>0?`translateY(${Math.round(d)}px)`:'';ths.forEach(x=>{if(x.style.transform!==t)x.style.transform=t;});});}
+addEventListener('scroll',fixaCab,{passive:true});addEventListener('resize',fixaCab);setInterval(fixaCab,700);
 </script>
 <script type="module">
 const V='10.12.2',B='https://www.gstatic.com/firebasejs/'+V+'/';
