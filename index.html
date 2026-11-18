@@ -464,13 +464,32 @@ const dadosST=()=>({v:2,empresa:EMP,exportadoEm:new Date().toISOString(),plano:S
 
 /* ================= NUVEM (FIREBASE) ================= */
 const stable=o=>JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,x)=>(a[x]=v[x],a),{}):v);
-const SYNC={ready:false,emp:null,existe:{},lojas:{L1:null,L2:null},lotes:{L1:{},L2:{}},unsub:[],timer:null,pend:0,erro:null,user:null};
+const SYNC={firstPend:null,lastOk:null,ok:0,ready:false,emp:null,existe:{},lojas:{L1:null,L2:null},lotes:{L1:{},L2:{}},unsub:[],timer:null,pend:0,erro:null,user:null};
 function setStatus(){const el=document.getElementById('sync');if(!el)return;
-  let t,c;if(SYNC.erro){t='⚠ Erro ao salvar';c='#d64545';}else if(SYNC.pend||SYNC.timer){t=navigator.onLine?'⟳ Salvando…':'⏸ Offline — será enviado';c=navigator.onLine?'#c98a00':'#8c8c8c';}else{t=navigator.onLine?'☁ Sincronizado':'⏸ Offline';c=navigator.onLine?'#1f9d55':'#8c8c8c';}
-  el.textContent=t;el.style.color=c;el.title=SYNC.erro?String(SYNC.erro):'';}
+  const lento=SYNC.pend&&SYNC.firstPend&&Date.now()-SYNC.firstPend>20000;
+  let t,c;if(SYNC.erro){t='⚠ Erro ao salvar';c='#d64545';}else if(lento&&navigator.onLine){t='⚠ Sem confirmação do servidor';c='#d64545';}else if(SYNC.pend||SYNC.timer){t=navigator.onLine?'⟳ Salvando…':'⏸ Offline — será enviado';c=navigator.onLine?'#c98a00':'#8c8c8c';}else{t=navigator.onLine?'☁ Sincronizado':'⏸ Offline';c=navigator.onLine?'#1f9d55':'#8c8c8c';}
+  el.textContent=t;el.style.color=c;el.style.cursor='pointer';el.title='Clique para ver o diagnóstico da sincronização';}
+setInterval(()=>{if(SYNC.pend)setStatus();},5000);
 addEventListener('online',setStatus);addEventListener('offline',setStatus);
 function agendaEnvio(){clearTimeout(SYNC.timer);SYNC.timer=setTimeout(()=>{SYNC.timer=null;enviaNuvem();},350);setStatus();}
-function track(pr){SYNC.pend++;setStatus();pr.then(()=>{SYNC.erro=null;},e=>{SYNC.erro=e&&e.message||e;console.error(e);alert('Erro ao salvar na nuvem: '+(e&&e.message||e));}).finally(()=>{SYNC.pend--;setStatus();});}
+function track(pr){if(!SYNC.pend)SYNC.firstPend=Date.now();SYNC.pend++;setStatus();pr.then(()=>{SYNC.erro=null;SYNC.lastOk=Date.now();SYNC.ok++;},e=>{SYNC.erro=e&&e.message||e;console.error(e);alert('Erro ao salvar na nuvem: '+(e&&e.message||e));}).finally(()=>{SYNC.pend--;if(!SYNC.pend)SYNC.firstPend=null;setStatus();});}
+// diagnóstico da sincronização (clique no status)
+async function diagSync(){const hora=t=>t?new Date(t).toLocaleTimeString('pt-BR'):'—';
+  modal(`<h3>Sincronização com a nuvem</h3><div id="dgBox" class="small" style="line-height:1.8">Testando conexão com o servidor…</div>
+    <div class="row" style="margin-top:14px"><button class="btn" id="dgRe">Reconectar e reenviar</button><button class="btn ghost" onclick="closeModal()">Fechar</button></div>`);
+  let teste;const t0=Date.now();
+  try{await Promise.race([FBX.fs.getDocFromServer(FBX.fs.doc(FBX.db,'empresas',EMP)),new Promise((_,r)=>setTimeout(()=>r(new Error('sem resposta em 10 s')),10000))]);teste=`✅ Servidor respondeu em ${Date.now()-t0} ms`;}
+  catch(e){teste=`❌ Falha ao falar com o servidor: ${esc(e.code||e.message)}<br>Provável bloqueio da rede (proxy, firewall ou antivírus) ou internet instável.`;}
+  const b=$('#dgBox');if(!b)return;
+  b.innerHTML=`<b>Internet do computador:</b> ${navigator.onLine?'conectado':'desconectado'}<br><b>Teste com o servidor:</b> ${teste}<br>
+    <b>Gravações aguardando confirmação:</b> ${SYNC.pend}${SYNC.firstPend?` (a mais antiga há ${Math.round((Date.now()-SYNC.firstPend)/1000)} s)`:''}<br>
+    <b>Gravações confirmadas nesta sessão:</b> ${SYNC.ok} · última às ${hora(SYNC.lastOk)}<br>
+    <b>Último erro:</b> ${SYNC.erro?esc(String(SYNC.erro)):'nenhum'}<br>
+    <span style="color:#888">As alterações ficam guardadas neste navegador e são enviadas automaticamente quando a conexão com o servidor voltar. Não feche o navegador enquanto houver gravações pendentes.</span>`;}
+document.getElementById('sync').onclick=()=>{if(window.FBX&&SYNC.ready)diagSync();};
+async function reconecta(){try{await FBX.fs.disableNetwork(FBX.db);await FBX.fs.enableNetwork(FBX.db);}catch(e){console.warn(e);}
+  SYNC.erro=null;SYNC.emp=null;SYNC.lojas={L1:null,L2:null};SYNC.lotes={L1:{},L2:{}};enviaNuvem();setStatus();}
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='dgRe'){reconecta();closeModal();}});
 function enviaNuvem(){const {db,fs}=FBX;const em=SYNC.user&&SYNC.user.email||'';
   const empRef=fs.doc(db,'empresas',EMP);
   const ej=stable(ST.plano);
@@ -1357,9 +1376,10 @@ try{
   try{auth=U.initializeAuth(app,{persistence:[U.indexedDBLocalPersistence,U.browserLocalPersistence]});}catch(e){console.warn(e);auth=U.getAuth(app);}
   auth.languageCode='pt';
   let db;
-  try{db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()}),ignoreUndefinedProperties:true});}
-  catch(e){console.warn('Cache offline indisponível',e);db=F.initializeFirestore(app,{ignoreUndefinedProperties:true});}
-  window.FBX={auth,db,fs:{doc:F.doc,collection:F.collection,setDoc:F.setDoc,updateDoc:F.updateDoc,deleteDoc:F.deleteDoc,onSnapshot:F.onSnapshot,serverTimestamp:F.serverTimestamp},
+  // experimentalAutoDetectLongPolling: usa long polling quando a rede (proxy/antivírus) bloqueia o canal de streaming
+  try{db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()}),ignoreUndefinedProperties:true,experimentalAutoDetectLongPolling:true});}
+  catch(e){console.warn('Cache offline indisponível',e);db=F.initializeFirestore(app,{ignoreUndefinedProperties:true,experimentalAutoDetectLongPolling:true});}
+  window.FBX={auth,db,fs:{doc:F.doc,collection:F.collection,setDoc:F.setDoc,updateDoc:F.updateDoc,deleteDoc:F.deleteDoc,onSnapshot:F.onSnapshot,serverTimestamp:F.serverTimestamp,getDocFromServer:F.getDocFromServer,disableNetwork:F.disableNetwork,enableNetwork:F.enableNetwork},
     signIn:(e,s)=>U.signInWithEmailAndPassword(auth,e,s),signOut:()=>U.signOut(auth),reset:e=>U.sendPasswordResetEmail(auth,e)};
   U.onAuthStateChanged(auth,u=>window.onAuth(u));
 }catch(e){console.error(e);window.fbErro&&window.fbErro(e);}
