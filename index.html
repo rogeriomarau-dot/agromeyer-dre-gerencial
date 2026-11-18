@@ -256,20 +256,28 @@ body.cons .cons-only.blk{display:block!important}
       <h3>2. Colunas</h3>
       <div class="row" style="gap:18px">
         <label>Tipo de relatório <select id="tipoRel" class="in"><option value="D">Despesas / fluxo de caixa (contas)</option><option value="V">Vendas por seção / grupo (receitas)</option><option value="C">Compras por seção / grupo (mercadorias)</option></select></label>
-        <label>Linha do cabeçalho <input type="number" min="1" id="hdrRow" class="in" style="width:70px"></label>
-        <label>Conta / grupo <select id="colConta" class="in"></select></label>
-        <label>Formato do valor
+        <label class="gen">Linha do cabeçalho <input type="number" min="1" id="hdrRow" class="in" style="width:70px"></label>
+        <label class="gen">Conta / grupo <select id="colConta" class="in"></select></label>
+        <label class="gen">Formato do valor
           <select id="valMode" class="in"><option value="1">Uma coluna de valor</option><option value="2">Débito e Crédito separados</option></select></label>
-        <label id="lbVal">Valor <select id="colVal" class="in"></select></label>
+        <label id="lbVal" class="gen">Valor <select id="colVal" class="in"></select></label>
         <label id="lbDeb" style="display:none">Débito <select id="colDeb" class="in"></select></label>
         <label id="lbCred" style="display:none">Crédito <select id="colCred" class="in"></select></label>
       </div>
       <div class="row" style="gap:18px;margin-top:12px">
-        <label>Coluna de data (define o mês) <select id="colData" class="in"></select></label>
+        <label class="gen">Coluna de data (define o mês) <select id="colData" class="in"></select></label>
         <label>Mês de referência (se não houver data) <select id="mesFix" class="in"></select></label>
         <button class="btn" id="btnProc">Processar arquivo</button>
       </div>
       <label class="small" id="custoWrap" style="display:none;margin-top:10px"><input type="checkbox" id="optCusto" checked> Importar também o <b>custo das vendas</b> de cada seção (Total bruto − Lucro), para o CMV pelo ERP e a análise de margem por seção</label>
+      <div id="fcaBox" style="display:none;margin-top:12px" class="banner info">
+        <div style="width:100%">📄 Formato reconhecido: <b>Fluxo de Caixa Analítico</b> do ERP (cada lançamento ocupa 2 linhas). Valor usado: <b>Val. Doc.</b>
+        <div class="row" style="margin-top:8px;gap:16px">
+          <label class="small">Mês definido pela data de <select class="in" id="fcaData"><option value="venc">Vencimento</option><option value="efet">Efetivação (pagamento)</option><option value="emis">Emissão</option></select></label>
+          <label class="small">Conta no DRE a partir de <select class="in" id="fcaConta"><option value="rh">"Referente a" + Histórico</option><option value="r">só "Referente a"</option></select></label>
+        </div>
+        <div class="small" id="fcaRes" style="margin-top:6px"></div></div>
+      </div>
       <div id="perInfo"></div>
       <p class="small" style="margin-top:10px">Linhas sem conta, ou com conta começando por "Total"/"Resultado", são ignoradas. Os valores são lidos em módulo (positivos); o DRE aplica o sinal de cada linha.</p>
     </div>
@@ -1017,7 +1025,29 @@ function setHdr(){const hr=Math.max(1,+$('#hdrRow').value)-1;let hdr=(IMP.aoa[hr
   if(IMP.alinhado)pi+='<div class="small" style="margin-top:6px">ℹ️ Os títulos das colunas estavam deslocados em relação aos valores no arquivo do ERP; o alinhamento foi corrigido automaticamente.</div>';
   $('#perInfo').innerHTML=pi;
   IMP.colLucro=IMP.hdr.findIndex(h=>/^LUCRO/.test(norm(h)));custoVis();
+  // formato especial: Fluxo de Caixa Analítico (2 linhas por lançamento)
+  IMP.fmt=/FLUXO DE CAIXA ANALITICO/.test(tn)&&IMP.hdr.some(h=>/^REFERENTE/.test(norm(h)))?'fca':null;
+  document.querySelectorAll('#colCard .gen,#lbDeb,#lbCred').forEach(e=>e.style.display=IMP.fmt?'none':'');if(!IMP.fmt)modeVis();
+  $('#fcaBox').style.display=IMP.fmt?'flex':'none';
+  if(IMP.fmt){$('#tipoRel').value='D';const L=parseFCA(IMP.aoa,hr);IMP.fcaL=L;const tot=L.reduce((s,x)=>s+x.v,0),bx=L.filter(x=>/BAIXAD/i.test(x.st)).length;
+    $('#fcaRes').innerHTML=`<b>${L.length}</b> lançamentos · total <b>R$ ${fR(tot)}</b> · ${bx} baixado(s), ${L.length-bx} em aberto`+(L.length&&bx===L.length&&/EFETIVA/.test(tn)?'<br>⚠️ O relatório foi filtrado por <b>Data de Efetivação</b>: só aparecem as contas já baixadas (pagas) no ERP. Para trazer todas as despesas do mês (salários, aluguel, impostos…), exporte filtrando por <b>Data de Vencimento</b> e incluindo as contas em aberto.':'');}
   modeVis();$('#colCard').style.display='';$('#prevCard').style.display='none';}
+// Fluxo de Caixa Analítico: linha 1 = datas e valores, linha 2 = histórico/banco/referente a
+function parseFCA(aoa,hr){const H=aoa[hr]||[];const hc=re=>H.findIndex(x=>x!=null&&re.test(norm(x)));
+  const cRef=hc(/^REFERENTE/),cHist=hc(/^HISTORICO/),cEm=hc(/^EMISS/),cVe=hc(/^VENC/),cEf=hc(/^EFETIV/);
+  const isD=x=>typeof x==='string'&&/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(x.trim()); // só texto: números (ex.: Nº Bloq.) não são datas
+  const near=(row,c)=>{let best=null,bd=1e9;row.forEach((x,i)=>{if(x==null||String(x).trim()==='')return;const d=Math.abs(i-c);if(d<bd){bd=d;best=x;}});return bd<=4?best:null;};
+  const pega=(r,c)=>{for(const d of [0,-1,1,-2,2])if(r[c+d]!=null&&isD(r[c+d]))return r[c+d];return null;};
+  const out=[];
+  for(let i=hr+1;i<aoa.length;i++){const r=aoa[i]||[];const dI=r.map((x,j)=>isD(x)?j:-1).filter(j=>j>-1);if(dI.length<2)continue;
+    const last=dI[dI.length-1];const nums=[];let st='';
+    r.forEach((x,j)=>{if(j<=last||x==null||String(x).trim()==='')return;const n=typeof x==='number'?x:(/^-?[\d.,]+$/.test(String(x).trim())?parseNum(x):null);if(n!=null)nums.push(n);else st=String(x).trim();});
+    if(nums.length<3)continue;
+    const off=cEm>-1?dI[0]-cEm:0;const r2=aoa[i+1]||[];const rec2=!r2.some(isD);
+    out.push({ref:String((rec2&&cRef>-1?near(r2,cRef):'')??'').replace(/\s+/g,' ').trim(),hist:String((rec2&&cHist>-1?near(r2,cHist):'')??'').replace(/\s+/g,' ').trim(),
+      v:Math.abs(nums[nums.length-3]),st,emis:r[dI[0]],venc:cVe>-1?pega(r,cVe+off):r[dI[1]],efet:cEf>-1?pega(r,cEf+off):null});
+    if(rec2)i++;}
+  return out;}
 function custoVis(){$('#custoWrap').style.display=IMP&&$('#tipoRel').value==='V'&&IMP.colLucro>-1?'block':'none';}
 $('#tipoRel').onchange=custoVis;
 function modeVis(){const two=$('#valMode').value==='2';$('#lbVal').style.display=two?'none':'';$('#lbDeb').style.display=two?'':'none';$('#lbCred').style.display=two?'':'none';}
@@ -1033,9 +1063,18 @@ const SIN={RACAO:'rac',RACOES:'rac','RACAO CAO':'rcao','RACAO CAES':'rcao','RACA
   JARDIM:'jar',JARDINAGEM:'jar',TERRA:'jar',SEMENTE:'jar',SEMENTES:'jar',
   AQUARISMO:'aqua',PEIXES:'aqua','ROEDORES PASSAROS':'pass',PASSAROS:'pass',HAMESTER:'pass',ROEDORES:'pass',
   GERAL:'out','5':'out','SECAO NAO CADASTRADA':'out',DIVERSOS:'out',BEBIDAS:'out'};
+// palavras-chave de despesas (Fluxo de Caixa do ERP) → conta do DRE
+const SIND=[[/DIARISTA|FAXIN|LIMPEZA PREDIO/,'a_serv'],[/GASOLINA|COMBUST|DIESEL|ETANOL/,'a_comb'],[/UBER|99 ?POP|TAXI/,'a_uber'],[/ALMOCO|AUXILIO|REFEIC|LANCHE/,'p_ali'],[/CAFE|AGUA PARA|COPO/,'a_cafe'],
+  [/ALUGUEL|CONDOMINIO/,'a_alug'],[/ENERGIA|LUZ|CEEE|RGE/,'a_ener'],[/CORSAN|AGUA/,'a_agua'],[/INTERNET|TELEFON|FIXO/,'a_tel'],[/CELULAR/,'a_cel'],[/CONTADOR|CONTABIL/,'h_cont'],[/SISTEMA|LOGICBOX|SOFTWARE/,'h_sis'],
+  [/INSS/,'p_inse'],[/FGTS/,'p_fgts'],[/SALARIO|FOLHA/,'p_sal'],[/ADIANTAMENTO/,'p_adi'],[/FERIAS/,'p_fer'],[/RESCIS/,'p_resc'],[/EXAME|MEDICINA/,'p_med'],[/VALE TRANSP/,'p_vt'],
+  [/DARF COFINS|COFINS/,'cofins'],[/DARF PIS|\bPIS\b/,'pis'],[/ICMS/,'icms'],[/SIMPLES|DAS\b/,'simples'],[/IRPJ/,'irpj'],[/CSLL/,'csll'],[/IPTU/,'a_iptu'],[/IPVA/,'a_ipva'],[/ALVARA/,'a_alv'],
+  [/JUROS|IOF|TARIFA/,'f_desp'],[/MOTOBOY|ENTREGA/,'dv_moto'],[/FRETE/,'a_frete'],[/MATERIAL DE USO E|MATERIAL DE LIMPEZA/,'a_limp'],[/ESCRITORIO/,'a_escr'],[/GRAFICA|IMPRESS/,'a_graf'],
+  [/MANUTENCAO VEIC|MECANIC/,'v_man'],[/MANUTENCAO|CONSERTO|REPARO/,'pr_man'],[/PUBLICIDADE|MARKETING|TRAFEGO|FACEBOOK|INSTAGRAM/,'k_traf'],[/SEGURANCA|MONITORAMENTO/,'h_seg'],[/DISTRIBUICAO|RETIRADA|PRO LABORE|PROLABORE/,'d_ret'],
+  [/PRODUTOS|COMPRA DE MERC|MERCADORIA/,'c_out']];
 function sugerir(nomeERP,tipo){const n=norm(nomeERP);if(!n)return null;let best=null,bl=0;
   const raiz=tipo==='V'?'rec':tipo==='C'?'cmp':null;
   if(raiz&&SIN[n]){const id=(tipo==='V'?'r_':'c_')+SIN[n];if(NODE[id])return id;}
+  if(tipo==='D'){for(const[re,id]of SIND)if(re.test(n)&&NODE[id])return id;}
   for(const lf of LEAVES){if(raiz&&!isDesc(lf,raiz))continue;const a=norm(lf.l),full=norm(fullLabel(lf.id));
     if(a===n||full===n)return lf.id;
     const a2=raiz==='cmp'?a.replace(/^COMPRAS /,''):a;if(a2===n)return lf.id;
@@ -1043,15 +1082,20 @@ function sugerir(nomeERP,tipo){const n=norm(nomeERP);if(!n)return null;let best=
     if(ok&&a.length>bl){best=lf.id;bl=a.length;}}
   return best;}
 $('#btnProc').onclick=()=>{const tipo=$('#tipoRel').value,pref=tipo==='D'?'':tipo+':';IMP.tipo=tipo;const hr=IMP.hr,cC=+$('#colConta').value,two=$('#valMode').value==='2',cV=+$('#colVal').value,cD=+$('#colDeb').value,cCr=+$('#colCred').value,cDt=$('#colData').value,mf=$('#mesFix').value;
-  if(cDt===''&&!mf){alert('Selecione a coluna de data ou o mês de referência.');return;}
+  if(cDt===''&&!mf&&!IMP.fmt){alert('Selecione a coluna de data ou o mês de referência.');return;}
   const ac={},cus={};let lidas=0,ign=0,semMes=0;const useC=tipo==='V'&&IMP.colLucro>-1&&$('#optCusto').checked;
-  for(const r of IMP.aoa.slice(hr+1)){if(!r)continue;const conta=r[cC];const cn=norm(conta);
+  // linhas a processar: [conta, valor, mês] — formato especial ou colunas genéricas
+  let linhas;
+  if(IMP.fmt==='fca'){const dk=$('#fcaData').value,ck=$('#fcaConta').value;
+    linhas=IMP.fcaL.map(x=>{const c=ck==='r'||!x.hist?x.ref:(x.ref?x.ref+' · '+x.hist:x.hist);return [c||'SEM CONTA',x.v,parseMes(x[dk])||parseMes(x.venc)||parseMes(x.emis)||mf||null];});}
+  else linhas=IMP.aoa.slice(hr+1).filter(r=>r).map(r=>{let v;if(two){const d=parseNum(r[cD]),c=parseNum(r[cCr]);v=Math.abs(d||0)||Math.abs(c||0);}else v=Math.abs(parseNum(r[cV])||0);
+    return [r[cC],v,(cDt!==''?parseMes(r[+cDt]):null)||mf||null,r];});
+  for(const [conta,v0,m0,r] of linhas){const cn=norm(conta);
     if(!cn||/^(TOTAL|RESULTADO|SUBTOTAL|SALDO)/.test(cn)){ign++;continue;}
-    let v;if(two){const d=parseNum(r[cD]),c=parseNum(r[cCr]);v=Math.abs(d||0)||Math.abs(c||0);}else v=Math.abs(parseNum(r[cV])||0);
-    if(!v){ign++;continue;}
-    let m=cDt!==''?parseMes(r[+cDt]):null;if(!m)m=mf||null;if(!m){semMes++;continue;}
+    const v=v0;if(!v){ign++;continue;}
+    const m=m0;if(!m){semMes++;continue;}
     const k=pref+cn;(ac[k]??={nome:String(conta).trim(),m:{}});ac[k].m[m]=(ac[k].m[m]||0)+v;lidas++;
-    if(useC){const lu=parseNum(r[IMP.colLucro]);if(lu!=null){const kc='K:'+cn;(cus[kc]??={nome:String(conta).trim(),m:{}});cus[kc].m[m]=(cus[kc].m[m]||0)+(v-lu);}}}
+    if(useC&&r){const lu=parseNum(r[IMP.colLucro]);if(lu!=null){const kc='K:'+cn;(cus[kc]??={nome:String(conta).trim(),m:{}});cus[kc].m[m]=(cus[kc].m[m]||0)+(v-lu);}}}
   IMP.custo=cus;
   const lo=ST.lojas[ST.loja];
   lo.preset={sig:IMP.hdr.join('|'),conta:cC,mode:two?'2':'1',val:cV,deb:cD,cred:cCr,data:cDt,tipo};save();
