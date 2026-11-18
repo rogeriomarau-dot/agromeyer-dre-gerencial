@@ -224,6 +224,7 @@ body.cons .cons-only.blk{display:block!important}
     <div class="card" id="colCard" style="display:none">
       <h3>2. Colunas</h3>
       <div class="row" style="gap:18px">
+        <label>Tipo de relatório <select id="tipoRel" class="in"><option value="D">Despesas / fluxo de caixa (contas)</option><option value="V">Vendas por seção / grupo (receitas)</option><option value="C">Compras por seção / grupo (mercadorias)</option></select></label>
         <label>Linha do cabeçalho <input type="number" min="1" id="hdrRow" class="in" style="width:70px"></label>
         <label>Conta / grupo <select id="colConta" class="in"></select></label>
         <label>Formato do valor
@@ -237,6 +238,7 @@ body.cons .cons-only.blk{display:block!important}
         <label>Mês de referência (se não houver data) <select id="mesFix" class="in"></select></label>
         <button class="btn" id="btnProc">Processar arquivo</button>
       </div>
+      <div id="perInfo"></div>
       <p class="small" style="margin-top:10px">Linhas sem conta, ou com conta começando por "Total"/"Resultado", são ignoradas. Os valores são lidos em módulo (positivos); o DRE aplica o sinal de cada linha.</p>
     </div>
     <div class="card" id="prevCard" style="display:none">
@@ -244,6 +246,11 @@ body.cons .cons-only.blk{display:block!important}
       <div class="row" style="justify-content:space-between;margin-bottom:8px">
         <span id="prevInfo" class="small"></span>
         <label class="small"><input type="checkbox" id="optRepl" checked> Substituir valores já importados destas contas nos mesmos meses (evita duplicidade ao reimportar)</label>
+      </div>
+      <div class="row" id="novoWrap" style="margin-bottom:8px;background:#faf7f4;border:1px solid var(--ln);border-radius:9px;padding:8px 12px">
+        <span class="small"><b>Seções sem linha correspondente no DRE?</b> Crie contas novas com o mesmo nome do ERP, dentro do grupo:</span>
+        <select id="grpNovo" class="in"></select>
+        <button class="btn sec2" id="btnCriar" style="padding:6px 12px">➕ Criar contas para as linhas "classificar depois"</button>
       </div>
       <div class="tw" style="max-height:480px"><table id="prevT"></table></div>
       <div class="row" style="margin-top:12px"><button class="btn" id="btnConf">Confirmar importação</button><button class="btn ghost" id="btnCanc">Cancelar</button></div>
@@ -885,8 +892,15 @@ function selSheet(n){IMP.aoa=IMP.sheets[n];IMP.sheet=n;
   let best=0,bs=-1;IMP.aoa.slice(0,25).forEach((r,i)=>{const s=(r||[]).filter(x=>typeof x==='string'&&x.trim()).length;if(s>bs){bs=s;best=i;}});
   $('#hdrRow').value=best+1;$('#fileInfo').textContent=`${IMP.aoa.length} linhas lidas`;setHdr();}
 $('#hdrRow').onchange=setHdr;
-function setHdr(){const hr=Math.max(1,+$('#hdrRow').value)-1;const hdr=(IMP.aoa[hr]||[]).map((x,i)=>x==null||x===''?'Coluna '+(i+1):String(x));
+function setHdr(){const hr=Math.max(1,+$('#hdrRow').value)-1;let hdr=(IMP.aoa[hr]||[]).map((x,i)=>x==null||x===''?'Coluna '+(i+1):String(x));
   const nc=Math.max(hdr.length,...IMP.aoa.slice(hr,hr+50).map(r=>(r||[]).length));for(let i=hdr.length;i<nc;i++)hdr.push('Coluna '+(i+1));
+  // relatórios exportados de geradores (ex.: Crystal) costumam ter o título da coluna deslocado em relação aos dados:
+  // quando o nº de títulos = nº de colunas com dados, alinha pela ordem
+  const hcols=(IMP.aoa[hr]||[]).map((x,i)=>x!=null&&String(x).trim()!==''?i:-1).filter(i=>i>-1);
+  const amostra=IMP.aoa.slice(hr+1,hr+31).filter(r=>r&&r.some(x=>x!=null&&x!==''));
+  const dcols=[];for(let c=0;c<nc;c++){const n=amostra.filter(r=>r[c]!=null&&String(r[c]).trim()!=='').length;if(amostra.length&&n/amostra.length>=.5)dcols.push(c);}
+  IMP.alinhado=false;
+  if(hcols.length>1&&hcols.length===dcols.length&&hcols.some((h,i)=>h!==dcols[i])){const h2=hdr.map((x,i)=>'Coluna '+(i+1));dcols.forEach((c,i)=>h2[c]=String(IMP.aoa[hr][hcols[i]]));hdr=h2;IMP.alinhado=true;}
   IMP.hdr=hdr;IMP.hr=hr;
   const opt=(none)=>(none?'<option value="">— nenhuma —</option>':'')+hdr.map((h,i)=>`<option value="${i}">${esc(h)}</option>`).join('');
   ['#colConta','#colVal','#colDeb','#colCred'].forEach(s=>$(s).innerHTML=opt(false));$('#colData').innerHTML=opt(true);
@@ -897,18 +911,37 @@ function setHdr(){const hr=Math.max(1,+$('#hdrRow').value)-1;const hdr=(IMP.aoa[
   else{set('#colConta',find(/PLANO/,/^CONTA$/,/CONTA/,/GRUPO/,/CATEGORIA/,/DESCRI/));
     const deb=find(/^DEBITO/),cred=find(/^CREDITO/);
     if(deb>-1&&cred>-1){$('#valMode').value='2';set('#colDeb',deb);set('#colCred',cred);}else{$('#valMode').value='1';set('#colVal',find(/^VALOR/,/TOTAL/,/VALOR/,/SALDO/));}
-    const d=find(/DATA PAG/,/PAGAMENTO/,/^DATA$/,/COMPETENCIA/,/EMISSAO/,/VENC/,/DATA/,/^MES/);$('#colData').value=d>-1?d:'';}
+    const d=find(/DATA PAG/,/PAGAMENTO/,/^DATA$/,/COMPETENCIA/,/EMISSAO/,/VENC/,/DATA/,/^MES/);$('#colData').value=d>-1?d:'';
+    if($('#colConta').value===''||find(/PLANO/,/^CONTA$/,/CONTA/,/GRUPO/,/CATEGORIA/,/DESCRI/)<0){const sc=find(/^SECAO/,/SECAO/,/DEPARTAMENTO/,/SUBGRUPO/,/FAMILIA/,/PRODUTO/);if(sc>-1)$('#colConta').value=sc;}
+    if($('#valMode').value==='1'){const tb=find(/TOT BRUTO/,/TOTAL BRUTO/,/^VALOR/,/TOTAL/,/VALOR/,/SALDO/);if(tb>-1)$('#colVal').value=tb;}}
   const y0=new Date().getFullYear();const mesAtual=rangeM((y0-3)+'-01',(y0+1)+'-12').reverse();$('#mesFix').innerHTML='<option value="">— selecione —</option>'+mesAtual.map(m=>`<option value="${m}">${MLL(m)}</option>`).join('');
+  // tipo e período identificados no cabeçalho do relatório
+  const topo=IMP.aoa.slice(0,Math.max(hr,1)).map(r=>(r||[]).filter(x=>x!=null).join(' ')).join(' | ');const tn=norm(topo);
+  $('#tipoRel').value=pr&&pr.tipo?pr.tipo:/VENDA|FATURAMENTO/.test(tn)?'V':/COMPRA|ENTRADA DE NOTA|NOTAS DE ENTRADA/.test(tn)?'C':'D';
+  let pi='';const mp=topo.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})\s*(?:e|a|até|ate|-)\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+  if(mp){const m1=parseMes(mp[1]),m2=parseMes(mp[2]);if(m1){$('#mesFix').value=m1;
+    if($('#colData').value===''||IMP.alinhado){$('#colData').value='';}
+    pi=m1===m2?`<div class="banner info" style="margin-top:10px">📅 Período identificado no relatório: <b>${mp[1]} a ${mp[2]}</b> → valores lançados em <b>${MLL(m1)}</b>.</div>`
+      :`<div class="banner" style="margin-top:10px">⚠️ O relatório abrange <b>${mp[1]} a ${mp[2]}</b> (mais de um mês) e não tem coluna de data. Os valores serão lançados todos no mês escolhido em "Mês de referência". O ideal é exportar do ERP <b>um mês por vez</b>.</div>`;}}
+  if(IMP.alinhado)pi+='<div class="small" style="margin-top:6px">ℹ️ Os títulos das colunas estavam deslocados em relação aos valores no arquivo do ERP; o alinhamento foi corrigido automaticamente.</div>';
+  $('#perInfo').innerHTML=pi;
   modeVis();$('#colCard').style.display='';$('#prevCard').style.display='none';}
 function modeVis(){const two=$('#valMode').value==='2';$('#lbVal').style.display=two?'none':'';$('#lbDeb').style.display=two?'':'none';$('#lbCred').style.display=two?'':'none';}
 $('#valMode').onchange=modeVis;
-function sugerir(nomeERP){const n=norm(nomeERP);if(!n)return null;let best=null,bl=0;
-  for(const lf of LEAVES){const a=norm(lf.l),full=norm(fullLabel(lf.id));
+// sinônimos usuais de seções de agropecuária/pet shop → sufixo da conta (r_ para vendas, c_ para compras)
+const SIN={FARMACIA:'farm',MEDICAMENTOS:'farm',MEDICAMENTO:'farm',ACESSORIO:'aces',ACESSORIOS:'aces','COLEIRAS E GUIAS':'aces',POTES:'aces',BRINQUEDOS:'aces','CAMA E ALMOFADA':'aces','CASINHAS PET':'aces',ARRANHADOR:'aces','BEBEDOURO EM GERAL':'aces','POTES E BEBEDOR':'aces','ESCOVAS PENTE':'aces',
+  AQUARISMO:'aqua',PEIXES:'aqua','ROEDORES PASSAROS':'pass',PASSAROS:'pass',HAMESTER:'pass',ROEDORES:'pass',PETISCOS:'pet','PETISCOS GATO':'pet','PETISCO CAO':'pet',BISCOITOS:'pet',
+  COSMETICOS:'cos',SHAMPOO:'cos',PERFUME:'cos',TALCO:'cos',JARDIM:'jar',JARDINAGEM:'jar',TERRA:'jar',SEMENTE:'jar',SEMENTES:'jar'};
+function sugerir(nomeERP,tipo){const n=norm(nomeERP);if(!n)return null;let best=null,bl=0;
+  const raiz=tipo==='V'?'rec':tipo==='C'?'cmp':null;
+  if(raiz&&SIN[n]){const id=(tipo==='V'?'r_':'c_')+SIN[n];if(NODE[id])return id;}
+  for(const lf of LEAVES){if(raiz&&!isDesc(lf,raiz))continue;const a=norm(lf.l),full=norm(fullLabel(lf.id));
     if(a===n||full===n)return lf.id;
+    const a2=raiz==='cmp'?a.replace(/^COMPRAS /,''):a;if(a2===n)return lf.id;
     const ok=a.length>=5&&(n.includes(a)||(a.includes(n)&&n.length/a.length>=.6));
     if(ok&&a.length>bl){best=lf.id;bl=a.length;}}
   return best;}
-$('#btnProc').onclick=()=>{const hr=IMP.hr,cC=+$('#colConta').value,two=$('#valMode').value==='2',cV=+$('#colVal').value,cD=+$('#colDeb').value,cCr=+$('#colCred').value,cDt=$('#colData').value,mf=$('#mesFix').value;
+$('#btnProc').onclick=()=>{const tipo=$('#tipoRel').value,pref=tipo==='D'?'':tipo+':';IMP.tipo=tipo;const hr=IMP.hr,cC=+$('#colConta').value,two=$('#valMode').value==='2',cV=+$('#colVal').value,cD=+$('#colDeb').value,cCr=+$('#colCred').value,cDt=$('#colData').value,mf=$('#mesFix').value;
   if(cDt===''&&!mf){alert('Selecione a coluna de data ou o mês de referência.');return;}
   const ac={};let lidas=0,ign=0,semMes=0;
   for(const r of IMP.aoa.slice(hr+1)){if(!r)continue;const conta=r[cC];const cn=norm(conta);
@@ -916,23 +949,32 @@ $('#btnProc').onclick=()=>{const hr=IMP.hr,cC=+$('#colConta').value,two=$('#valM
     let v;if(two){const d=parseNum(r[cD]),c=parseNum(r[cCr]);v=Math.abs(d||0)||Math.abs(c||0);}else v=Math.abs(parseNum(r[cV])||0);
     if(!v){ign++;continue;}
     let m=cDt!==''?parseMes(r[+cDt]):null;if(!m)m=mf||null;if(!m){semMes++;continue;}
-    const k=cn;(ac[k]??={nome:String(conta).trim(),m:{}});ac[k].m[m]=(ac[k].m[m]||0)+v;lidas++;}
+    const k=pref+cn;(ac[k]??={nome:String(conta).trim(),m:{}});ac[k].m[m]=(ac[k].m[m]||0)+v;lidas++;}
   const lo=ST.lojas[ST.loja];
-  lo.preset={sig:IMP.hdr.join('|'),conta:cC,mode:two?'2':'1',val:cV,deb:cD,cred:cCr,data:cDt};save();
+  lo.preset={sig:IMP.hdr.join('|'),conta:cC,mode:two?'2':'1',val:cV,deb:cD,cred:cCr,data:cDt,tipo};save();
   IMP.ac=ac;const ks=Object.keys(ac).sort((a,b)=>ac[a].nome.localeCompare(ac[b].nome));
   if(!ks.length){alert('Nenhuma linha válida encontrada. Confira as colunas escolhidas.');return;}
   const meses=[...new Set(ks.flatMap(k=>Object.keys(ac[k].m)))].sort();IMP.meses=meses;
   const opts=leafOptions();
   let h=`<thead><tr><th>Conta no ERP</th><th>Meses</th><th>Total</th><th style="text-align:left">Linha do DRE</th><th>Situação</th></tr></thead><tbody>`;
   let novos=0;
-  for(const k of ks){const a=ac[k],cur=lo.depara[k];const sug=cur||sugerir(a.nome);if(!cur)novos++;
+  for(const k of ks){const a=ac[k],cur=lo.depara[k];const sug=cur||sugerir(a.nome,tipo);if(!cur)novos++;
     const tot=Object.values(a.m).reduce((s,x)=>s+x,0);
     h+=`<tr data-k="${esc(k)}"><td>${esc(a.nome)}</td><td class="n small">${Object.keys(a.m).sort().map(m=>MS[+m.slice(5)-1]+'/'+m.slice(2,4)).join(', ')}</td><td class="n">${fR(tot)}</td>
     <td><select class="in mapsel">${opts.replace(`value="${sug}"`,`value="${sug}" selected`)}</select></td>
     <td>${cur?(cur==='__ign'?'<span class="tag ign">ignorada</span>':'<span class="tag ok">já classificada</span>'):(sug?'<span class="tag new">nova · sugerida</span>':'<span class="tag new">nova</span>')}</td></tr>`;}
   $('#prevT').innerHTML=h+'</tbody>';
   $('#prevInfo').innerHTML=`<b>${ks.length}</b> contas · <b>${lidas}</b> lançamentos · meses: <b>${meses.map(m=>MS[+m.slice(5)-1]+'/'+m.slice(0,4)).join(', ')}</b> · <b>${novos}</b> conta(s) nova(s)${ign?` · ${ign} linha(s) ignoradas`:''}${semMes?` · <span class="neg">${semMes} sem mês identificado</span>`:''}`;
+  $('#grpNovo').innerHTML=grpOptions(tipo==='V'?'rec':tipo==='C'?'cmp':'dop');
   $('#prevCard').style.display='';$('#prevCard').scrollIntoView({behavior:'smooth'});};
+$('#btnCriar').onclick=()=>{const g=$('#grpNovo').value;const trs=[...document.querySelectorAll('#prevT tbody tr')].filter(tr=>!tr.querySelector('select').value);
+  if(!trs.length){alert('Não há linhas em "classificar depois".');return;}
+  if(!confirm(`Criar ${trs.length} conta(s) nova(s) no plano de contas, dentro de "${fullLabel(g)}", com os nomes do ERP?`))return;
+  const P=ST.plano,ids={};trs.forEach((tr,i)=>{const nm=IMP.ac[tr.dataset.k].nome;const ex=LEAVES.find(l=>l.parent===g&&norm(l.l)===norm(nm));
+    if(ex){ids[tr.dataset.k]=ex.id;return;}const nid='u'+Date.now().toString(36)+i;P.add.push({id:nid,l:nm.charAt(0)+nm.slice(1).toLowerCase(),t:'leaf',parent:g});ids[tr.dataset.k]=nid;});
+  COL[g]=0;saveCol();buildEstr();save();const opts=leafOptions();
+  document.querySelectorAll('#prevT tbody tr').forEach(tr=>{const s=tr.querySelector('select');const v=ids[tr.dataset.k]||s.value;s.innerHTML=opts;s.value=v;
+    if(ids[tr.dataset.k])tr.lastElementChild.innerHTML='<span class="tag u">conta criada</span>';});};
 function leafOptions(){let h='<option value="">— classificar depois —</option><option value="__ign">— Ignorar esta conta —</option>';
   const top=ESTR.filter(n=>n.t!=='calc'&&n.t!=='inp');
   for(const t of top){const lv=t.t==='leaf'?[t]:FLAT.filter(n=>n.t==='leaf'&&isDesc(n,t.id));
@@ -965,7 +1007,7 @@ function renderMap(){const lj=ST.loja,lo=ST.lojas[lj],a=agg(lj);const de=ST.per.
   const only=$('#onlyPend').checked,q=norm($('#mapBusca').value);const opts=leafOptions();
   const rows=ks.filter(k=>(!only||!lo.depara[k])&&(!q||k.includes(q))&&okCat(k)).sort((x,y)=>(lo.nomes[x]||x).localeCompare(lo.nomes[y]||y));
   $('#mapT').innerHTML=`<thead><tr><th>Conta no ERP</th><th>Total ${perTxt()}</th><th>Total geral</th><th style="text-align:left">Linha do DRE</th><th></th></tr></thead><tbody>`+
-    (rows.length?rows.map(k=>{const cur=lo.depara[k]||'';return `<tr data-k="${esc(k)}"><td>${esc(lo.nomes[k]||k)}</td><td class="n">${fR(tp[k]||0)}</td><td class="n small">${fR(a.contas[k]||0)}</td><td><select class="in mapsel">${opts.replace(`value="${cur}"`,`value="${cur}" selected`)}</select></td><td>${!cur?'<span class="tag new">sem classificação</span>':cur==='__ign'?'<span class="tag ign">ignorada</span>':'<span class="tag ok">ok</span>'}</td></tr>`;}).join(''):'<tr><td colspan=5 class="small">Nenhuma conta.</td></tr>')+'</tbody>';}
+    (rows.length?rows.map(k=>{const cur=lo.depara[k]||'';const tp=/^[VC]:/.test(k)?`<span class="tag ${k[0]==='V'?'ok':'u'}">${k[0]==='V'?'venda':'compra'}</span> `:'';return `<tr data-k="${esc(k)}"><td>${tp}${esc(lo.nomes[k]||k)}</td><td class="n">${fR(tp[k]||0)}</td><td class="n small">${fR(a.contas[k]||0)}</td><td><select class="in mapsel">${opts.replace(`value="${cur}"`,`value="${cur}" selected`)}</select></td><td>${!cur?'<span class="tag new">sem classificação</span>':cur==='__ign'?'<span class="tag ign">ignorada</span>':'<span class="tag ok">ok</span>'}</td></tr>`;}).join(''):'<tr><td colspan=5 class="small">Nenhuma conta.</td></tr>')+'</tbody>';}
 $('#mapT').onchange=e=>{const s=e.target.closest('select');if(!s)return;const k=s.closest('tr').dataset.k;const lo=ST.lojas[ST.loja];if(s.value)lo.depara[k]=s.value;else delete lo.depara[k];save();renderMap();};
 $('#onlyPend').onchange=renderMap;$('#mapBusca').oninput=renderMap;
 $('#btnCopyMap').onclick=()=>{const o=ST.loja==='L1'?'L2':'L1',src=ST.lojas[o],dst=ST.lojas[ST.loja];const n=Object.keys(src.depara).filter(k=>!dst.depara[k]).length;
