@@ -103,6 +103,7 @@ body.cons .only-loja{display:none!important}
 .cons-only{display:none!important}
 body.cons .cons-only{display:inline-flex!important}
 body.cons .cons-only.blk{display:block!important}
+.qrel{display:inline-flex;gap:6px}.qrel .btn{padding:6px 11px;font-size:12.5px}
 .cmpt{display:inline-flex;align-items:center;gap:6px;background:#fff1e8;border:1px solid #f6c9ad;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#a8430a;cursor:pointer}
 .legend{font-size:12px;color:var(--mu);margin-top:8px}
 @media print{header,nav,.noprint{display:none!important}.tw{max-height:none;overflow:visible}}
@@ -123,6 +124,7 @@ body.cons .cons-only.blk{display:block!important}
   <button data-s="map" class="only-loja">De-para de contas</button>
   <button data-s="plano">Plano de contas</button>
   <button data-s="comp">Dados complementares</button>
+  <button data-s="rel">Relatórios</button>
   <button data-s="bkp">Backup</button>
 </nav>
 <main>
@@ -144,6 +146,7 @@ body.cons .cons-only.blk{display:block!important}
   <section class="sec on" id="s-painel">
     <div class="row" style="justify-content:space-between;margin-bottom:10px">
       <div><h2 id="pTitle">Painel</h2><p class="sub" id="pSub"></p></div>
+      <span class="qrel noprint" data-q="painel"></span>
     </div>
     <div id="pWarn"></div>
     <div class="kpis" id="kpis"></div>
@@ -171,7 +174,7 @@ body.cons .cons-only.blk{display:block!important}
         <label class="small"><input type="checkbox" id="optAH"> AH%</label>
         <button class="btn ghost" id="expAll">Expandir tudo</button>
         <button class="btn ghost" id="colAll">Recolher tudo</button>
-        <button class="btn sec2" id="dreXls">Exportar Excel</button>
+        <span class="qrel" data-q="dre"></span>
       </div>
     </div>
     <div id="dreWarn"></div>
@@ -181,7 +184,7 @@ body.cons .cons-only.blk{display:block!important}
 
   <!-- INDICADORES -->
   <section class="sec" id="s-ind">
-    <div class="row" style="justify-content:space-between"><h2 id="indTit">Indicadores mensais — <span class="lojaNome"></span></h2><label class="cmpt cons-only noprint"><input type="checkbox" class="optCmp"> Comparativo por loja</label></div>
+    <div class="row" style="justify-content:space-between"><h2 id="indTit">Indicadores mensais — <span class="lojaNome"></span></h2><div class="row noprint"><label class="cmpt cons-only"><input type="checkbox" class="optCmp"> Comparativo por loja</label><span class="qrel" data-q="ind"></span></div></div>
     <p class="sub">Todos calculados a partir dos dados importados e dos dados complementares. Meses sem dados ficam em branco.</p>
     <div class="tw"><table id="indT"></table></div>
     <div class="card" style="margin-top:16px">
@@ -277,6 +280,34 @@ body.cons .cons-only.blk{display:block!important}
     <h2>Dados complementares — <span class="lojaNome"></span></h2>
     <p class="sub">Informações que não vêm do DRE, necessárias para CMV, estoque e endividamento. O estoque inicial em branco assume o estoque final do mês anterior.</p>
     <div class="tw"><table id="compT"></table></div>
+  </section>
+
+  <!-- RELATÓRIOS -->
+  <section class="sec" id="s-rel">
+    <h2>Relatórios</h2>
+    <p class="sub">Gere relatórios para imprimir, salvar em PDF ou analisar no Excel. Eles seguem os filtros atuais da barra do topo: loja, período e categorias.</p>
+    <div class="grid2">
+      <div class="card"><h3>Conteúdo do relatório</h3>
+        <label class="fld"><input type="checkbox" class="rSel" value="painel" checked> <b>Painel</b> — indicadores-chave e gráficos</label>
+        <label class="fld"><input type="checkbox" class="rSel" value="dre" checked> <b>DRE</b> <span class="small">(no Consolidado com "Comparativo por loja" ligado, sai o comparativo)</span></label>
+        <label class="fld"><input type="checkbox" class="rSel" value="ind" checked> <b>Indicadores</b></label>
+        <label class="fld"><input type="checkbox" class="rSel" value="comp"> <b>Comparativo Loja 01 × Loja 02</b> (DRE lado a lado)</label>
+        <label class="fld"><input type="checkbox" class="rSel" value="compl"> <b>Dados complementares</b> (dias, vendas, estoques, dívida)</label>
+        <label class="fld only-loja"><input type="checkbox" class="rSel" value="map"> <b>De-para de contas</b> (contas do ERP × linhas do DRE)</label>
+      </div>
+      <div class="card"><h3>Opções</h3>
+        <label class="fld"><input type="checkbox" id="rResumo"> DRE resumido (só grupos principais e linhas de resultado)</label>
+        <label class="fld"><input type="checkbox" id="rZero" checked> Ocultar contas e grupos sem valor no período</label>
+        <label class="fld"><input type="checkbox" id="rAVm"> AV% em cada mês (recomendado para até 6 meses)</label>
+        <div class="banner info" id="rInfo" style="margin-top:12px"></div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn" data-g="print">🖨 Imprimir</button>
+          <button class="btn" data-g="pdf">📄 Gerar PDF</button>
+          <button class="btn sec2" data-g="xls">📊 Gerar Excel</button>
+        </div>
+        <p class="small" style="margin-top:10px">No PDF e na impressão, cada parte começa numa página nova, em paisagem. No Excel, cada parte vira uma aba, com os números como valores (prontos para fórmulas e tabelas dinâmicas).</p>
+      </div>
+    </div>
   </section>
 
   <!-- BACKUP -->
@@ -648,7 +679,7 @@ function naCat(n){const s=fSet();if(!s.size)return true;let c=n;while(c){if(s.ha
 let curTab='painel';
 function showTab(s){curTab=s;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('on',x.id==='s-'+s));renderTab();}
 $('#tabs').onclick=e=>{const b=e.target.closest('button');if(b)showTab(b.dataset.s);};
-function renderTab(){({painel:renderPainel,dre:renderDRE,ind:renderInd,imp:renderImp,map:renderMap,plano:renderPlano,comp:renderComp,bkp:renderBkp})[curTab]();}
+function renderTab(){({painel:renderPainel,dre:renderDRE,ind:renderInd,imp:renderImp,map:renderMap,plano:renderPlano,comp:renderComp,rel:renderRel,bkp:renderBkp})[curTab]();}
 function renderAll(){invalid();renderHeader();renderTab();}
 function modal(html){$('#mbox').innerHTML=html;$('#modal').classList.add('on');}
 function closeModal(){$('#modal').classList.remove('on');}
@@ -790,7 +821,7 @@ function detalhe(id,m){const lj=ST.loja;const ls=lj==='CONS'?['L1','L2']:[lj];
   ${lj==='CONS'?'':`<div class="row" style="margin-top:14px"><label>Ajuste manual (soma ao importado; use negativo para reduzir) <input class="in" id="manIn" value="${manV?fR(manV):''}" style="width:150px"></label><button class="btn" id="manOk">Salvar</button></div>`}
   <div class="row" style="margin-top:10px"><button class="btn ghost" onclick="closeModal()">Fechar</button></div>`);
   const b=$('#manOk');if(b)b.onclick=()=>{const v=parseNum($('#manIn').value);const k=id+'|'+m;if(v)ST.lojas[lj].manuais[k]=v;else delete ST.lojas[lj].manuais[k];save();closeModal();renderDRE();};}
-$('#dreXls').onclick=()=>{if(modoComp())return xlsComp();const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
+const _dreXlsOld=()=>{if(modoComp())return xlsComp();const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
   const aoa=[['DRE Gerencial — Agropecuária Agromeyer — '+nomeLoja()+' — '+perTxt()+(ST.cat.length?' — categorias filtradas':'')],[],['Plano de contas',...MA.flatMap(m=>[ML(m),'AV%']),'Total','AV%','Média']];
   for(const n of FLAT){if(!naCat(n))continue;const row=['  '.repeat(n.lvl)+n.l];
     MA.forEach(m=>{const has=dm.includes(m);const v=has?val(lj,n.id,m):null;const rb=has?val(lj,'rb',m):0;row.push(has?+v.toFixed(2):null,has&&rb?+(v/rb).toFixed(4):null);});
@@ -807,23 +838,31 @@ function xlsComp(){const dm=mesesComDados('CONS');if(!dm.length){alert('Sem dado
   const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:55}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Comparativo');
   XLSX.writeFile(wb,`DRE_Agromeyer_Comparativo_${ST.per.de}_a_${ST.per.ate}.xlsx`);}
 /* ================= INDICADORES ================= */
-function renderInd(){const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);const comp=modoComp();
-  let X,T,heads;
-  if(comp){heads=LJS.map(x=>x[1]);X=dm.length?LJS.map(([k])=>indic(k,dm)):LJS.map(()=>null);T=undefined;}
-  else{heads=MA.map(ML).concat(['Acumulado']);X=MA.map(m=>dm.includes(m)?indic(lj,[m]):null);T=dm.length?indic(lj,dm):null;}
+// especificação dos indicadores (usada na tela e nos relatórios). Tipos: R=R$, P=%, N0/N1/N2=número
+function indSpec(){const S=[],H=t=>S.push({h:t}),R=(l,f,t='R',c='')=>S.push({l,f,t,c});
+  const semP=l=>l.replace(/^\([-+=/ ]+\)\s*/,'');
+  if(ST.cat.length){H('CATEGORIAS FILTRADAS');ST.cat.forEach(id=>{const lb=semP(NODE[id].l);R(lb+' (R$)',x=>x.cat[id],'R','grp');R(lb+' (% fat.)',x=>dv(x.cat[id],x.rb),'P');R(lb+' (AH% mês ant.)',x=>x.catAH?x.catAH[id]:null,'P');});}
+  H('FATURAMENTO');R('Faturamento (receita bruta)',x=>x.rb);R('Dias trabalhados',x=>x.dias,'N0');R('Faturamento médio diário',x=>x.fatDia);R('Nº de vendas',x=>x.vendas,'N0');R('Ticket médio',x=>x.ticket);
+  H('CUSTOS VARIÁVEIS');R('Deduções (impostos, taxas, variáveis)',x=>x.ded);R('Deduções %',x=>x.dedP,'P');R('Compras de mercadorias',x=>x.cmp);R('CMV',x=>x.cmv);R('CMV %',x=>x.cmvP,'P');R('Margem de contribuição',x=>x.mc,'R','grp');R('Margem de contribuição %',x=>x.mcP,'P','grp');
+  H('DESPESAS FIXAS');R('Despesas operacionais fixas',x=>x.dop);R('Despesas fixas %',x=>x.dopP,'P');
+  NODE.dop.ch.forEach(g=>R('   '+g.l+' %',x=>dv(x.grp[g.id],x.rb),'P'));
+  R('Ponto de equilíbrio (R$)',x=>x.pe);R('Margem de segurança',x=>x.ms_,'P');
+  H('RESULTADO');R('EBITDA',x=>x.ebitda,'R','grp');R('EBITDA %',x=>x.ebP,'P','grp');R('Resultado financeiro',x=>x.rfin);R('Lucro líquido operacional',x=>x.ll,'R','grp');R('Lucro líquido %',x=>x.llP,'P','grp');R('Investimentos (imobilizado)',x=>x.inv);R('Entradas/saídas não operacionais',x=>x.nop);R('Distribuição de resultados',x=>x.dist);R('Geração de caixa operacional',x=>x.gco);R('Geração de caixa do mês',x=>x.gc,'R','grp');
+  H('ESTOQUE');R('Estoque inicial',x=>x.ei);R('Estoque final',x=>x.ef);R('Estoque médio',x=>x.em);R('Giro do estoque (x)',x=>x.giro,'N2');R('Prazo médio de rotação (dias)',x=>x.pmre,'N0');R('Cobertura do estoque final (dias)',x=>x.cob,'N0');R('Grau de estocagem (estoque ÷ faturamento)',x=>x.estF,'P');
+  H('ENDIVIDAMENTO BANCÁRIO');R('Saldo empréstimos e financiamentos',x=>x.div);R('Dívida ÷ EBITDA anualizado (x)',x=>x.divEb,'N2');R('Meses de EBITDA para quitar',x=>x.mesesQ,'N1');R('Dívida ÷ faturamento anualizado',x=>x.divFat,'P');R('Juros de empréstimos',x=>x.jur);R('Amortizações',x=>x.amort);R('Comprometimento do EBITDA (juros + amortização)',x=>x.serv,'P');
+  return S;}
+const FMT={R:fR,P:fP,N0:v=>fN(v,0),N1:v=>fN(v,1),N2:v=>fN(v,2)};
+// colunas dos indicadores: {heads, cols:[indic|null], total}
+function indCols(onlyData){const lj=ST.loja,MA=mesesAno(),dm=mesesComDados(lj);
+  if(modoComp())return{comp:true,heads:LJS.map(x=>x[1]),cols:dm.length?LJS.map(([k])=>indic(k,dm)):LJS.map(()=>null),total:undefined};
+  const ms=onlyData?dm:MA;return{comp:false,heads:ms.map(ML).concat(['Acumulado']),cols:ms.map(m=>dm.includes(m)?indic(lj,[m]):null),total:dm.length?indic(lj,dm):null};}
+function renderInd(){const C=indCols(false),comp=C.comp;
   $('#indTit').innerHTML=(comp?'Indicadores — comparativo por loja · '+perTxt():'Indicadores mensais — '+nomeLoja());
-  const R=(lb,f,fmt,cls='')=>`<tr class="${cls}"><td class="lb">${lb}</td>${X.map((x,i)=>`<td class="n">${comp&&i===2?'<b>':''}${x?fmt(f(x))??'':''}${comp&&i===2?'</b>':''}</td>`).join('')}${comp?'':`<td class="n"><b>${T?fmt(f(T))??'':''}</b></td>`}</tr>`;
-  const H=t=>`<tr class="calc"><td class="lb">${t}</td>${heads.map(()=>'<td></td>').join('')}</tr>`;
-  let h=`<thead><tr><th>Indicador</th>${heads.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>`;
-  if(ST.cat.length){h+=H('CATEGORIAS FILTRADAS');ST.cat.forEach(id=>{const lb=esc(NODE[id].l.replace(/^\([-+=/ ]+\)\s*/,''));h+=R(lb+' (R$)',x=>x.cat[id],fR,'grp')+R(lb+' (% fat.)',x=>dv(x.cat[id],x.rb),fP)+R(lb+' (AH% mês ant.)',x=>x.catAH?x.catAH[id]:null,fP);});}
-  h+=H('FATURAMENTO')+R('Faturamento (receita bruta)',x=>x.rb,fR)+R('Dias trabalhados',x=>x.dias,v=>fN(v,0))+R('Faturamento médio diário',x=>x.fatDia,fR)+R('Nº de vendas',x=>x.vendas,v=>fN(v,0))+R('Ticket médio',x=>x.ticket,fR);
-  h+=H('CUSTOS VARIÁVEIS')+R('Deduções (impostos, taxas, variáveis)',x=>x.ded,fR)+R('Deduções %',x=>x.dedP,fP)+R('Compras de mercadorias',x=>x.cmp,fR)+R('CMV',x=>x.cmv,fR)+R('CMV %',x=>x.cmvP,fP)+R('Margem de contribuição',x=>x.mc,fR,'grp')+R('Margem de contribuição %',x=>x.mcP,fP,'grp');
-  h+=H('DESPESAS FIXAS')+R('Despesas operacionais fixas',x=>x.dop,fR)+R('Despesas fixas %',x=>x.dopP,fP);
-  NODE.dop.ch.forEach(g=>{h+=R('&nbsp;&nbsp;'+g.l+' %',x=>dv(x.grp[g.id],x.rb),fP);});
-  h+=R('Ponto de equilíbrio (R$)',x=>x.pe,fR)+R('Margem de segurança',x=>x.ms_,fP);
-  h+=H('RESULTADO')+R('EBITDA',x=>x.ebitda,fR,'grp')+R('EBITDA %',x=>x.ebP,fP,'grp')+R('Resultado financeiro',x=>x.rfin,fR)+R('Lucro líquido operacional',x=>x.ll,fR,'grp')+R('Lucro líquido %',x=>x.llP,fP,'grp')+R('Investimentos (imobilizado)',x=>x.inv,fR)+R('Entradas/saídas não operacionais',x=>x.nop,fR)+R('Distribuição de resultados',x=>x.dist,fR)+R('Geração de caixa operacional',x=>x.gco,fR)+R('Geração de caixa do mês',x=>x.gc,fR,'grp');
-  h+=H('ESTOQUE')+R('Estoque inicial',x=>x.ei,fR)+R('Estoque final',x=>x.ef,fR)+R('Estoque médio',x=>x.em,fR)+R('Giro do estoque (x)',x=>x.giro,v=>fN(v,2))+R('Prazo médio de rotação (dias)',x=>x.pmre,v=>fN(v,0))+R('Cobertura do estoque final (dias)',x=>x.cob,v=>fN(v,0))+R('Grau de estocagem (estoque ÷ faturamento)',x=>x.estF,fP);
-  h+=H('ENDIVIDAMENTO BANCÁRIO')+R('Saldo empréstimos e financiamentos',x=>x.div,fR)+R('Dívida ÷ EBITDA anualizado (x)',x=>x.divEb,v=>fN(v,2))+R('Meses de EBITDA para quitar',x=>x.mesesQ,v=>fN(v,1))+R('Dívida ÷ faturamento anualizado',x=>x.divFat,fP)+R('Juros de empréstimos',x=>x.jur,fR)+R('Amortizações',x=>x.amort,fR)+R('Comprometimento do EBITDA (juros + amortização)',x=>x.serv,fP);
+  let h=`<thead><tr><th>Indicador</th>${C.heads.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>`;
+  for(const r of indSpec()){
+    if(r.h){h+=`<tr class="calc"><td class="lb">${r.h}</td>${C.heads.map(()=>'<td></td>').join('')}</tr>`;continue;}
+    const f=FMT[r.t];
+    h+=`<tr class="${r.c}"><td class="lb">${esc(r.l).replace(/^ +/,m=>'&nbsp;'.repeat(m.length))}</td>${C.cols.map((x,i)=>`<td class="n">${comp&&i===2?'<b>':''}${x?f(r.f(x))??'':''}${comp&&i===2?'</b>':''}</td>`).join('')}${comp?'':`<td class="n"><b>${C.total?f(r.f(C.total))??'':''}</b></td>`}</tr>`;}
   $('#indT').innerHTML=h+'</tbody>';}
 
 /* ================= IMPORTAÇÃO ================= */
@@ -1009,6 +1048,159 @@ function removeNo(id){const P=ST.plano;const i=P.add.findIndex(x=>x.id===id);
   delete P.ren[id];delete P.mov[id];delete P.neg[id];delete P.ord[id];for(const g in P.ord)P.ord[g]=P.ord[g].filter(x=>x!==id);}
 $('#plReset').onclick=()=>{if(!confirm('Restaurar o plano de contas padrão? Contas personalizadas serão removidas e as contas do ERP vinculadas a elas voltarão para "sem classificação". Os valores importados não são apagados.'))return;
   ST.plano=planoVazio();planoMudou();};
+
+/* ================= RELATÓRIOS (imprimir / PDF / Excel) ================= */
+Chart.defaults.animation=false;
+const cel=(v,t='R')=>({v:(v==null||!isFinite(v))?null:v,t});
+const fmtCel=c=>c==null?'':typeof c!=='object'?String(c):c.v==null?'':FMT[c.t](c.v);
+const stl=n=>n.t==='calc'?(n.big?'big':'calc'):n.t==='grp'?'grp':n.t==='inp'?'inp':'lf';
+const semP=l=>l.replace(/^\([-+=/ ]+\)\s*/,'');
+function subt(extra){const f=ST.cat.length?' · Categorias: '+ST.cat.map(id=>semP(NODE[id].l)).join(', '):'';return `${nomeLoja()} · Período ${perTxt()}${extra?' · '+extra:''}${f}`;}
+function secDRE(resumo,avMes){
+  if(modoComp())return secComp(resumo);
+  const lj=ST.loja,dm=mesesComDados(lj);if(!dm.length)return null;
+  const head=['Plano de contas'];dm.forEach(m=>{head.push(ML(m));if(avMes)head.push('AV%');});head.push('Total','AV%','Média');
+  const rbT=valP(lj,'rb',dm),rows=[];
+  for(const n of FLAT){if(!naCat(n))continue;if(resumo&&n.lvl>0)continue;
+    const c=[];dm.forEach(m=>{const v=val(lj,n.id,m),rb=val(lj,'rb',m);c.push(cel(v||n.t!=='leaf'?v:null));if(avMes)c.push(cel(rb&&v?v/rb:null,'P'));});
+    const t=valP(lj,n.id,dm);c.push(cel(t||n.t!=='leaf'?t:null),cel(rbT&&t?t/rbT:null,'P'),cel(t&&n.t!=='inp'?t/dm.length:null));
+    rows.push({lb:n.l,lvl:n.lvl,s:stl(n),c});}
+  return {tit:'DRE Gerencial',sub:subt(dm.length+' mês(es) com dados'),head,rows};}
+function secComp(resumo){const dm=mesesComDados('CONS');if(!dm.length)return null;
+  const head=['Plano de contas','Loja 01','AV%','Loja 02','AV%','Consolidado','AV%','Dif. L01 − L02','Dif. AV% (p.p.)'];
+  const rb={};LJS.forEach(([k])=>rb[k]=valP(k,'rb',dm));const rows=[];
+  for(const n of FLAT){if(!naCat(n))continue;if(resumo&&n.lvl>0)continue;const v={},c=[];
+    LJS.forEach(([k])=>{v[k]=valP(k,n.id,dm);c.push(cel(v[k]||n.t!=='leaf'?v[k]:null),cel(rb[k]&&v[k]?v[k]/rb[k]:null,'P'));});
+    const d=v.L1-v.L2;c.push(cel(d||n.t!=='leaf'?d:null),cel(rb.L1&&rb.L2&&(v.L1||v.L2)?(v.L1/rb.L1-v.L2/rb.L2)*100:null,'N1'));
+    rows.push({lb:n.l,lvl:n.lvl,s:stl(n),c});}
+  const sv=ST.loja;ST.loja='CONS';const sb=subt(dm.length+' mês(es) com dados');ST.loja=sv;
+  return {tit:'Comparativo Loja 01 × Loja 02 — DRE do período',sub:sb.replace(/^[^·]+· /,'Loja 01 × Loja 02 × Consolidado · '),head,rows};}
+function secInd(){const C=indCols(true);if(!C.cols.some(x=>x))return null;
+  const head=['Indicador',...C.heads],rows=[];
+  for(const r of indSpec()){if(r.h){rows.push({lb:r.h,lvl:0,s:'calc',c:C.heads.map(()=>null)});continue;}
+    const c=C.cols.map(x=>cel(x?r.f(x):null,r.t));if(!C.comp)c.push(cel(C.total?r.f(C.total):null,r.t));
+    rows.push({lb:r.l.trim(),lvl:r.l.startsWith(' ')?1:0,s:r.c||'lf',c});}
+  return {tit:C.comp?'Indicadores — comparativo por loja':'Indicadores',sub:subt(),head,rows};}
+function secCompl(){const lj=ST.loja,MA=mesesAno();const head=['Informação',...MA.map(ML)];
+  const rows=CF.map(([f,lb,d])=>({lb,lvl:0,s:'lf',c:MA.map(m=>cel(compl(lj,m,f),d?'R':'N0'))}));
+  return {tit:'Dados complementares',sub:subt(),head,rows};}
+function secMap(){const lj=ST.loja;if(lj==='CONS')return null;const lo=ST.lojas[lj],a=agg(lj);const de=ST.per.de,ate=ST.per.ate;
+  const tp={};for(const lt of lo.lotes)for(const it of lt.itens)if(it.m>=de&&it.m<=ate)tp[it.c]=(tp[it.c]||0)+it.v;
+  const ks=[...new Set([...Object.keys(lo.depara),...Object.keys(a.contas)])].sort((x,y)=>(lo.nomes[x]||x).localeCompare(lo.nomes[y]||y));
+  const rows=ks.map(k=>{const ln=lo.depara[k];return{lb:lo.nomes[k]||k,lvl:0,s:ln?'lf':'grp',c:[!ln?'SEM CLASSIFICAÇÃO':ln==='__ign'?'(ignorada)':NODE[ln]?fullLabel(ln):'(conta excluída)',cel(tp[k]||null),cel(a.contas[k]||null)]};});
+  return {tit:'De-para de contas (ERP → DRE)',sub:subt(),head:['Conta no ERP','Linha do DRE','Total no período','Total geral'],rows};}
+async function secPainel(){const lj=ST.loja,dm=mesesComDados(lj);if(!dm.length)return null;const x=indic(lj,dm);
+  const k=[['Faturamento',x.rb,'R'],['CMV',x.cmv,'R'],['CMV %',x.cmvP,'P'],['Margem de contribuição',x.mc,'R'],['MC %',x.mcP,'P'],['Despesas fixas',x.dop,'R'],['Despesas fixas %',x.dopP,'P'],['EBITDA',x.ebitda,'R'],['EBITDA %',x.ebP,'P'],['Lucro líquido',x.ll,'R'],['Lucro líquido %',x.llP,'P'],['Geração de caixa',x.gc,'R'],['Ponto de equilíbrio',x.pe,'R'],['Margem de segurança',x.ms_,'P'],['Prazo médio de rotação do estoque (dias)',x.pmre,'N0'],['Giro do estoque (x)',x.giro,'N2'],['Dívida bancária',x.div,'R'],['Dívida ÷ EBITDA (x)',x.divEb,'N2']];
+  // gráficos: renderiza o painel visível para capturar as imagens
+  const prev=curTab;if(prev!=='painel')showTab('painel');await new Promise(r=>setTimeout(r,250));
+  const imgs=[];document.querySelectorAll('#s-painel .card').forEach(cd=>{const cv=cd.querySelector('canvas');if(!cv||cv.style.display==='none'||!CH[cv.id]||cd.offsetParent===null)return;
+    const t=cd.querySelector('h3').textContent;const c2=document.createElement('canvas');c2.width=cv.width;c2.height=cv.height;const g=c2.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c2.width,c2.height);g.drawImage(cv,0,0);
+    imgs.push({t,src:c2.toDataURL('image/png'),w:cv.width,h:cv.height});});
+  if(prev!=='painel')showTab(prev);
+  const MA=dm;const serie={head:['Mês','Faturamento','CMV','Margem contrib.','Despesas fixas','EBITDA','Lucro líquido','Geração de caixa'],rows:MA.map(m=>{const i=indic(lj,[m]);return{lb:MLL(m),lvl:0,s:'lf',c:[i.rb,i.cmv,i.mc,i.dop,i.ebitda,i.ll,i.gc].map(v=>cel(v))};})};
+  return {tit:'Painel — indicadores-chave',sub:subt(dm.length+' mês(es) com dados'),kpis:k,imgs,serie};}
+async function montaRel(lista){const resumo=$('#rResumo').checked;const dmN=mesesComDados(ST.loja).length;const avMes=$('#rAVm').checked;const out=[];
+  for(const r of lista){let x=null;
+    if(r==='painel')x=await secPainel();else if(r==='dre')x=secDRE(resumo,avMes);else if(r==='ind')x=secInd();else if(r==='comp')x=secComp(resumo);else if(r==='compl')x=secCompl();else if(r==='map')x=secMap();
+    if(x){if(x.rows&&$('#rZero').checked&&(r==='dre'||r==='comp'))x.rows=x.rows.filter(rw=>rw.s==='calc'||rw.s==='big'||rw.c.some(c=>c&&typeof c==='object'&&c.v));out.push(x);}}
+  return out;}
+const NOMEREL=()=>`Agromeyer_${nomeLoja().replace(/\s/g,'')}_${ST.per.de}_a_${ST.per.ate}`;
+const quem=()=>(SYNC.user&&SYNC.user.email)||'';
+const agora=()=>new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+const LOGO=()=>document.querySelector('.logo img').src;
+// ---------- Excel ----------
+function relXls(secs){const wb=XLSX.utils.book_new();const used=new Set();
+  const nomeAba=t=>{let n=t.replace(/[\\/?*\[\]:]/g,'').slice(0,28);let b=n,i=2;while(used.has(n))n=b.slice(0,26)+' '+i++;used.add(n);return n;};
+  const Z={R:'#,##0.00',P:'0.0%',N0:'#,##0',N1:'0.0',N2:'0.00'};
+  const tabela=(aoa,head,rows,r0)=>{aoa.push(head);rows.forEach(r=>aoa.push([' '.repeat((r.lvl||0)*3)+r.lb,...r.c.map(c=>c&&typeof c==='object'?c.v:c)]));};
+  const fmtar=(ws,rows,r0)=>{rows.forEach((r,i)=>r.c.forEach((c,j)=>{if(c&&typeof c==='object'&&c.v!=null){const ad=XLSX.utils.encode_cell({r:r0+i,c:j+1});if(ws[ad])ws[ad].z=Z[c.t];}}));};
+  for(const s of secs){const aoa=[[s.tit],[s.sub],['Gerado em '+agora()+(quem()?' por '+quem():'')],[]];
+    if(s.kpis){aoa.push(['Indicador','Valor']);s.kpis.forEach(([l,v])=>aoa.push([l,v==null||!isFinite(v)?null:v]));aoa.push([]);const r1=aoa.length;tabela(aoa,s.serie.head,s.serie.rows);
+      const ws=XLSX.utils.aoa_to_sheet(aoa);s.kpis.forEach(([l,v,t],i)=>{const ad=XLSX.utils.encode_cell({r:5+i,c:1});if(ws[ad])ws[ad].z=Z[t];});fmtar(ws,s.serie.rows,r1+1);
+      ws['!cols']=[{wch:42},...s.serie.head.slice(1).map(()=>({wch:15}))];XLSX.utils.book_append_sheet(wb,ws,nomeAba('Painel'));continue;}
+    const r0=aoa.length+1;tabela(aoa,s.head,s.rows);const ws=XLSX.utils.aoa_to_sheet(aoa);fmtar(ws,s.rows,r0);
+    ws['!cols']=[{wch:50},...s.head.slice(1).map(()=>({wch:14}))];XLSX.utils.book_append_sheet(wb,ws,nomeAba(s.tit.split(' — ')[0]));}
+  XLSX.writeFile(wb,NOMEREL()+'.xlsx');}
+// ---------- HTML (impressão) ----------
+function relHTML(secs){const st=`@page{size:A4 landscape;margin:9mm}*{box-sizing:border-box}body{font-family:'Space Grotesk',Arial,sans-serif;color:#1d1d1d;margin:0;font-size:9px}
+  .pg{page-break-after:always}.pg:last-child{page-break-after:auto}
+  .hd{display:flex;align-items:center;gap:12px;border-bottom:3px solid #F26419;padding-bottom:6px;margin-bottom:8px}.hd img{height:42px}.hd h1{font-size:15px;margin:0}.hd p{margin:2px 0 0;color:#666;font-size:9.5px}.hd .r{margin-left:auto;text-align:right;color:#888;font-size:8.5px}
+  table{border-collapse:collapse;width:100%}th{background:#1A1A1A;color:#fff;padding:3px 4px;text-align:right;font-weight:600}th:first-child{text-align:left}
+  td{padding:2px 4px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap}td:first-child{text-align:left}
+  tr.grp td{background:#faf7f4;font-weight:600}tr.calc td{background:#fff1e8;font-weight:700}tr.big td{background:#1A1A1A;color:#fff;font-weight:700}tr.inp td{background:#f2f7ff;font-style:italic}
+  .neg{color:#d64545}tr.big .neg{color:#ff9c9c}thead{display:table-header-group}tr{page-break-inside:avoid}
+  .kp{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:10px}.kp div{border:1px solid #e3e3e0;border-left:3px solid #F26419;border-radius:6px;padding:5px 7px}.kp b{display:block;font-size:12px}.kp span{color:#666;font-size:8px;text-transform:uppercase}
+  .gr{display:grid;grid-template-columns:1fr 1fr;gap:10px}.gr .w{grid-column:1/-1}.gr div{border:1px solid #e3e3e0;border-radius:6px;padding:6px;page-break-inside:avoid}.gr h4{margin:0 0 4px;font-size:10px}.gr img{width:100%}
+  .ft{margin-top:6px;color:#999;font-size:8px}`;
+  let h=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(NOMEREL())}</title><style>${st}</style></head><body>`;
+  const cab=s=>`<div class="hd"><img src="${LOGO()}"><div><h1>${esc(s.tit)}</h1><p>Agropecuária Agromeyer · ${esc(s.sub)}</p></div><div class="r">Finance Consultoria Empresarial<br>Gerado em ${agora()}${quem()?'<br>'+esc(quem()):''}</div></div>`;
+  for(const s of secs){h+=`<div class="pg">${cab(s)}`;
+    if(s.kpis){h+='<div class="kp">'+s.kpis.map(([l,v,t])=>`<div><span>${esc(l)}</span><b>${v==null||!isFinite(v)?'—':FMT[t](v)}</b></div>`).join('')+'</div>';
+      h+='<div class="gr">'+s.imgs.map(i=>`<div class="${i.w/i.h>2.6?'w':''}"><h4>${esc(i.t)}</h4><img src="${i.src}"></div>`).join('')+'</div></div>';continue;}
+    h+=`<table><thead><tr>${s.head.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>`;
+    for(const r of s.rows)h+=`<tr class="${r.s}"><td style="padding-left:${4+(r.lvl||0)*10}px">${esc(r.lb)}</td>${r.c.map(c=>`<td class="${c&&c.v<0?'neg':''}">${esc(fmtCel(c))}</td>`).join('')}</tr>`;
+    h+='</tbody></table></div>';}
+  return h+'</body></html>';}
+function relPrint(secs){let fr=document.getElementById('prFrame');if(fr)fr.remove();fr=document.createElement('iframe');fr.id='prFrame';fr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0';document.body.appendChild(fr);
+  const d=fr.contentWindow.document;d.open();d.write(relHTML(secs));d.close();
+  setTimeout(()=>{fr.contentWindow.focus();fr.contentWindow.print();},500);}
+// ---------- PDF ----------
+const loadJS=u=>new Promise((ok,er)=>{if(document.querySelector(`script[src="${u}"]`))return ok();const sc=document.createElement('script');sc.src=u;sc.onload=ok;sc.onerror=()=>er(new Error('não foi possível carregar '+u));document.head.appendChild(sc);});
+const pdfTxt=t=>String(t??'').replace(/[−–—]/g,'-').replace(/×/g,'x').replace(/÷/g,'/').replace(/›/g,'>').replace(/[▸▾]/g,'').replace(/ /g,' ');
+async function relPDF(secs){
+  await loadJS('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+  await loadJS('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});const W=297,Hh=210,M=9;
+  const OR_=[242,100,25],DK_=[26,26,26];
+  const cab=s=>{try{doc.addImage(LOGO(),'JPEG',M,M,24,15);}catch(e){}
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(29);doc.text(pdfTxt(s.tit),M+28,M+6);
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(100);doc.text(doc.splitTextToSize(pdfTxt('Agropecuária Agromeyer · '+s.sub),190),M+28,M+11);
+    doc.setFontSize(7.5);doc.setTextColor(140);doc.text(['Finance Consultoria Empresarial','Gerado em '+agora(),pdfTxt(quem())],W-M,M+4,{align:'right'});
+    doc.setDrawColor(...OR_);doc.setLineWidth(0.8);doc.line(M,M+18,W-M,M+18);return M+21;};
+  secs.forEach((s,si)=>{if(si)doc.addPage();let y=cab(s);
+    if(s.kpis){const cols=6,cw=(W-2*M-(cols-1)*3)/cols;s.kpis.forEach(([l,v,t],i)=>{const cx=M+(i%cols)*(cw+3),cy=y+Math.floor(i/cols)*15;
+        doc.setDrawColor(227);doc.setLineWidth(0.2);doc.roundedRect(cx,cy,cw,13,1.5,1.5);doc.setFillColor(...OR_);doc.rect(cx,cy,1.2,13,'F');
+        doc.setFontSize(6.5);doc.setTextColor(110);doc.text(pdfTxt(l).toUpperCase(),cx+3,cy+4.5,{maxWidth:cw-4});doc.setFontSize(10.5);doc.setTextColor(29);doc.setFont('helvetica','bold');
+        doc.text(v==null||!isFinite(v)?'-':pdfTxt(FMT[t](v)),cx+3,cy+10.5);doc.setFont('helvetica','normal');});
+      y+=Math.ceil(s.kpis.length/cols)*15+3;
+      const gw=(W-2*M-6)/2;let col=0;
+      for(const im of s.imgs){const wide=im.w/im.h>2.6;if(wide&&col===1){y+=68;col=0;}
+        const aw=wide?W-2*M:gw;const gh=Math.min(aw*im.h/im.w,wide?70:62)+6;
+        if(y+gh>Hh-M-6){doc.addPage();y=cab(s);col=0;}
+        const cx=M+col*(gw+6);doc.setFontSize(8.5);doc.setTextColor(29);doc.setFont('helvetica','bold');doc.text(pdfTxt(im.t),cx,y+3.5);doc.setFont('helvetica','normal');
+        const ih=gh-6,iw=Math.min(aw,ih*im.w/im.h);doc.addImage(im.src,'PNG',cx,y+5,iw,ih);
+        if(wide||col===1){y+=gh+3;col=0;}else col=1;}
+      return;}
+    const nc=s.head.length;const fs=nc>20?5.6:nc>14?6.3:nc>9?7.2:8;
+    const lw=nc>20?54:nc>14?60:nc>9?78:90;
+    doc.autoTable({startY:y,head:[s.head.map(pdfTxt)],body:s.rows.map(r=>[pdfTxt(r.lb),...r.c.map(c=>pdfTxt(fmtCel(c)))]),margin:{left:M,right:M,top:M+21,bottom:12},
+      theme:'plain',styles:{fontSize:fs,cellPadding:{top:0.9,bottom:0.9,left:1.2,right:1.2},halign:'right',textColor:29,overflow:'ellipsize'},
+      headStyles:{fillColor:DK_,textColor:255,fontStyle:'bold',halign:'right'},columnStyles:{0:{halign:'left',cellWidth:lw}},
+      didParseCell:d=>{if(d.section==='head'){if(d.column.index===0)d.cell.styles.halign='left';return;}const r=s.rows[d.row.index];
+        if(d.column.index===0)d.cell.styles.cellPadding={top:0.9,bottom:0.9,left:1.2+(r.lvl||0)*2.6,right:1.2};
+        if(r.s==='big'){d.cell.styles.fillColor=DK_;d.cell.styles.textColor=255;d.cell.styles.fontStyle='bold';}
+        else if(r.s==='calc'){d.cell.styles.fillColor=[255,241,232];d.cell.styles.fontStyle='bold';}
+        else if(r.s==='grp'){d.cell.styles.fillColor=[250,247,244];d.cell.styles.fontStyle='bold';}
+        else if(r.s==='inp'){d.cell.styles.fillColor=[242,247,255];d.cell.styles.fontStyle='italic';}
+        const c=d.column.index>0?r.c[d.column.index-1]:null;if(c&&typeof c==='object'&&c.v<0&&r.s!=='big')d.cell.styles.textColor=[214,69,69];},
+      didDrawPage:()=>{}});});
+  const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(150);doc.text('DRE Gerencial · Agropecuária Agromeyer · Finance Consultoria Empresarial - Rogério Müller',M,Hh-5);doc.text(`Página ${i} de ${n}`,W-M,Hh-5,{align:'right'});}
+  doc.save(NOMEREL()+'.pdf');}
+async function gerarRel(lista,modo){
+  if(!lista.length){alert('Selecione pelo menos uma parte do relatório.');return;}
+  const btns=document.querySelectorAll('[data-g],.qrel .btn');btns.forEach(b=>b.disabled=true);
+  try{const secs=await montaRel(lista);
+    if(!secs.length){alert('Não há dados no período/loja selecionados para gerar o relatório.');return;}
+    if(modo==='xls')relXls(secs);else if(modo==='pdf')await relPDF(secs);else relPrint(secs);}
+  catch(e){console.error(e);alert('Erro ao gerar o relatório: '+e.message);}
+  finally{btns.forEach(b=>b.disabled=false);}}
+function renderRel(){const dm=mesesComDados(ST.loja);
+  $('#rInfo').innerHTML=`Filtros atuais: <b>${esc(nomeLoja())}</b> · <b>${esc(perTxt())}</b> (${dm.length} mês(es) com dados)${ST.cat.length?' · <b>'+ST.cat.length+' categoria(s)</b>':''}${modoComp()?' · DRE e Indicadores em modo <b>comparativo por loja</b>':''}`;
+  $('#rAVm').checked=$('#rAVm').dataset.set?$('#rAVm').checked:dm.length<=6;}
+$('#rAVm').onchange=e=>{e.target.dataset.set=1;};
+document.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>gerarRel([...document.querySelectorAll('.rSel:checked')].filter(c=>c.offsetParent!==null).map(c=>c.value),b.dataset.g));
+document.querySelectorAll('.qrel').forEach(q=>{q.innerHTML='<button class="btn ghost" data-m="print" title="Imprimir">🖨 Imprimir</button><button class="btn ghost" data-m="pdf" title="Gerar PDF">📄 PDF</button><button class="btn ghost" data-m="xls" title="Gerar Excel">📊 Excel</button>';
+  q.onclick=e=>{const b=e.target.closest('button');if(b)gerarRel([q.dataset.q],b.dataset.m);};});
 
 /* ================= COMPLEMENTARES ================= */
 const CF=[['dias','Dias trabalhados',0],['vendas','Nº de vendas / atendimentos',0],['ei','Estoque inicial (R$)',2],['ef','Estoque final (R$)',2],['div','Saldo de empréstimos e financiamentos bancários (R$)',2]];
