@@ -62,6 +62,7 @@ tr.inp{background:#f2f7ff;font-style:italic}
 tr.lf td.lb{color:#333}
 .ib{background:none;border:1px solid var(--ln);border-radius:6px;padding:2px 7px;cursor:pointer;font:inherit;font-size:12px;margin-left:3px;background:#fff}
 .ib:hover{border-color:var(--or);color:var(--or)}.ib.del:hover{border-color:var(--bad);color:var(--bad)}
+.tag.A{background:#fde3d3;color:#a8430a}.tag.B{background:#e4e4e4;color:#1a1a1a}.tag.C{background:#f1f1ef;color:#888}
 .tag.u{background:#efe6fb;color:#5b2fa0}
 #compT th:not(:first-child),#compT td:not(:first-child){text-align:center}#compT td input{margin:0 auto;display:block}
 .fld{display:block;margin:10px 0}.fld span{display:block;font-size:12px;color:var(--mu);margin-bottom:3px}.fld .in{width:100%}
@@ -121,6 +122,7 @@ body.cons .cons-only.blk{display:block!important}
   <button data-s="painel" class="on">Painel</button>
   <button data-s="dre">DRE</button>
   <button data-s="ind">Indicadores</button>
+  <button data-s="abc">Curva ABC</button>
   <button data-s="imp" class="only-loja">Importar do ERP</button>
   <button data-s="map" class="only-loja">De-para de contas</button>
   <button data-s="plano">Plano de contas</button>
@@ -210,6 +212,30 @@ body.cons .cons-only.blk{display:block!important}
         <b>Geração de caixa operacional</b> = EBITDA ± Resultado financeiro − IRPJ/CSLL ·
         <b>Geração de caixa do mês</b> = resultado final após investimentos, não operacionais e distribuição
       </div>
+    </div>
+  </section>
+
+  <!-- CURVA ABC -->
+  <section class="sec" id="s-abc">
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <div><h2>Curva ABC — <span class="lojaNome"></span></h2><p class="sub" id="abcSub"></p></div>
+      <div class="row noprint"><label class="small">Classe A até <input class="in" id="abcA" type="number" min="1" max="99" style="width:62px"> %</label>
+        <label class="small">Classe B até <input class="in" id="abcB" type="number" min="1" max="100" style="width:62px"> %</label>
+        <span class="qrel" data-q="abc"></span></div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h3>Vendas por categoria</h3>
+        <label class="small">Agrupar por <select class="in" id="abcVn"><option value="ln">Linha do DRE</option><option value="sec">Seção do ERP</option></select></label></div>
+      <div class="kpis" id="abcVk" style="margin:8px 0"></div>
+      <div class="chartbox" style="height:320px"><canvas id="cA1"></canvas></div>
+      <div class="tw" style="max-height:420px;margin-top:12px"><table id="abcVt"></table></div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h3>Despesas operacionais (fixas)</h3>
+        <label class="small">Agrupar por <select class="in" id="abcDn"><option value="conta">Conta</option><option value="grp">Subgrupo</option></select></label></div>
+      <div class="kpis" id="abcDk" style="margin:8px 0"></div>
+      <div class="chartbox" style="height:320px"><canvas id="cA2"></canvas></div>
+      <div class="tw" style="max-height:420px;margin-top:12px"><table id="abcDt"></table></div>
     </div>
   </section>
 
@@ -309,6 +335,7 @@ body.cons .cons-only.blk{display:block!important}
         <label class="fld"><input type="checkbox" class="rSel" value="dre" checked> <b>DRE</b> <span class="small">(no Consolidado com "Comparativo por loja" ligado, sai o comparativo)</span></label>
         <label class="fld"><input type="checkbox" class="rSel" value="ind" checked> <b>Indicadores</b></label>
         <label class="fld"><input type="checkbox" class="rSel" value="marg" checked> <b>Margem por linha de produto</b> (vendas × custo do ERP, por seção)</label>
+        <label class="fld"><input type="checkbox" class="rSel" value="abc" checked> <b>Curva ABC</b> — vendas por categoria e despesas operacionais</label>
         <label class="fld"><input type="checkbox" class="rSel" value="comp"> <b>Comparativo Loja 01 × Loja 02</b> (DRE lado a lado)</label>
         <label class="fld"><input type="checkbox" class="rSel" value="compl"> <b>Dados complementares</b> (dias, vendas, estoques, dívida)</label>
         <label class="fld only-loja"><input type="checkbox" class="rSel" value="map"> <b>De-para de contas</b> (contas do ERP × linhas do DRE)</label>
@@ -457,8 +484,8 @@ function normST(){
   if(ST.fRes==null)ST.fRes=true;
   if(ST.cmp==null)ST.cmp=true;}
 function load(){let p={};try{p=JSON.parse(localStorage.getItem(PKEY))||{};}catch(e){}
-  ST={lojas:{},plano:planoVazio(),loja:p.loja,per:p.per,cat:p.cat,fRes:p.fRes,cmp:p.cmp};normST();}
-function savePrefs(){try{localStorage.setItem(PKEY,JSON.stringify({loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes,cmp:ST.cmp}));}catch(e){}}
+  ST={lojas:{},plano:planoVazio(),loja:p.loja,per:p.per,cat:p.cat,fRes:p.fRes,cmp:p.cmp,abcA:p.abcA,abcB:p.abcB,abcVn:p.abcVn,abcDn:p.abcDn};normST();}
+function savePrefs(){try{localStorage.setItem(PKEY,JSON.stringify({loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes,cmp:ST.cmp,abcA:ST.abcA,abcB:ST.abcB,abcVn:ST.abcVn,abcDn:ST.abcDn}));}catch(e){}}
 function save(){savePrefs();invalid();if(SYNC.ready)agendaEnvio();}
 // dados (sem preferências) — usado no backup
 const dadosST=()=>({v:2,empresa:EMP,exportadoEm:new Date().toISOString(),plano:ST.plano,lojas:ST.lojas});
@@ -546,7 +573,7 @@ async function iniciaSessao(u){SYNC.user=u;$('#lgBox').style.display='none';$('#
   enviaNuvem(); // cria os documentos na primeira vez / envia migração
   $('#login').classList.remove('on');renderAll();setStatus();}
 function encerraSessao(){paraEscuta();SYNC.ready=false;SYNC.emp=null;SYNC.existe={};SYNC.lojas={L1:null,L2:null};SYNC.lotes={L1:{},L2:{}};SYNC.user=null;
-  const pref={loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes,cmp:ST.cmp};ST={lojas:{},plano:planoVazio(),...pref};normST();buildEstr();
+  const pref={loja:ST.loja,per:ST.per,cat:ST.cat,fRes:ST.fRes,cmp:ST.cmp,abcA:ST.abcA,abcB:ST.abcB,abcVn:ST.abcVn,abcDn:ST.abcDn};ST={lojas:{},plano:planoVazio(),...pref};normST();buildEstr();
   $('#login').classList.add('on');$('#lgLoad').style.display='none';$('#lgBox').style.display='';$('#lgSenha').value='';}
 window.onAuth=u=>{if(u)iniciaSessao(u).catch(e=>{console.error(e);$('#lgMsg').textContent='Erro ao carregar: '+e.message;$('#lgBox').style.display='';$('#lgLoad').style.display='none';});else encerraSessao();};
 load();buildEstr();
@@ -731,7 +758,7 @@ function naCat(n){const s=fSet();if(!s.size)return true;let c=n;while(c){if(s.ha
 let curTab='painel';
 function showTab(s){curTab=s;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));document.querySelectorAll('.sec').forEach(x=>x.classList.toggle('on',x.id==='s-'+s));renderTab();}
 $('#tabs').onclick=e=>{const b=e.target.closest('button');if(b)showTab(b.dataset.s);};
-function renderTab(){({painel:renderPainel,dre:renderDRE,ind:renderInd,imp:renderImp,map:renderMap,plano:renderPlano,comp:renderComp,rel:renderRel,bkp:renderBkp})[curTab]();}
+function renderTab(){({painel:renderPainel,dre:renderDRE,ind:renderInd,abc:renderABC,imp:renderImp,map:renderMap,plano:renderPlano,comp:renderComp,rel:renderRel,bkp:renderBkp})[curTab]();}
 function renderAll(){invalid();renderHeader();renderTab();}
 function modal(html){$('#mbox').innerHTML=html;$('#modal').classList.add('on');}
 function closeModal(){$('#modal').classList.remove('on');}
@@ -973,7 +1000,7 @@ function setHdr(){const hr=Math.max(1,+$('#hdrRow').value)-1;let hdr=(IMP.aoa[hr
   if(pr){set('#colConta',pr.conta);$('#valMode').value=pr.mode;set('#colVal',pr.val);set('#colDeb',pr.deb);set('#colCred',pr.cred);$('#colData').value=pr.data;}
   else{set('#colConta',find(/PLANO/,/^CONTA$/,/CONTA/,/GRUPO/,/CATEGORIA/,/DESCRI/));
     const deb=find(/^DEBITO/),cred=find(/^CREDITO/);
-    if(deb>-1&&cred>-1){$('#valMode').value='2';set('#colDeb',deb);set('#colCred',cred);}else{$('#valMode').value='1';set('#colVal',find(/^VALOR/,/TOTAL/,/VALOR/,/SALDO/));}
+    if(deb>-1&&cred>-1){$('#valMode').value='2';set('#colDeb',deb);set('#colCred',cred);}else{$('#valMode').value='1';set('#colVal',find(/^VALOR/,/TOTAL/,/VALOR/,/SALDO/,/^DEBITO/,/^CREDITO/,/PAGO/,/^VL/));}
     const d=find(/DATA PAG/,/PAGAMENTO/,/^DATA$/,/COMPETENCIA/,/EMISSAO/,/VENC/,/DATA/,/^MES/);$('#colData').value=d>-1?d:'';
     if($('#colConta').value===''||find(/PLANO/,/^CONTA$/,/CONTA/,/GRUPO/,/CATEGORIA/,/DESCRI/)<0){const sc=find(/^SECAO/,/SECAO/,/DEPARTAMENTO/,/SUBGRUPO/,/FAMILIA/,/PRODUTO/);if(sc>-1)$('#colConta').value=sc;}
     if($('#valMode').value==='1'){const tb=find(/TOT BRUTO/,/TOTAL BRUTO/,/^VALOR/,/TOTAL/,/VALOR/,/SALDO/);if(tb>-1)$('#colVal').value=tb;}}
@@ -1169,6 +1196,46 @@ function removeNo(id){const P=ST.plano;const i=P.add.findIndex(x=>x.id===id);
 $('#plReset').onclick=()=>{if(!confirm('Restaurar o plano de contas padrão? Contas personalizadas serão removidas e as contas do ERP vinculadas a elas voltarão para "sem classificação". Os valores importados não são apagados.'))return;
   ST.plano=planoVazio();planoMudou();};
 
+/* ================= CURVA ABC ================= */
+const abcLim=()=>{const a=ST.abcA||80,b=Math.max(ST.abcB||95,a);return[a/100,b/100];};
+function abcItens(tipo,nivel,lj,ms){const out=[];
+  if(tipo==='v'&&nivel==='sec'){const ls=lj==='CONS'?['L1','L2']:[lj];const m={};
+    for(const l of ls){const a=agg(l),lo=ST.lojas[l];for(const k in a.porConta){if(!k.startsWith('V:'))continue;const v=ms.reduce((s,x)=>s+(a.porConta[k][x]||0),0);if(!v)continue;const nm=lo.nomes[k]||k.slice(2);
+      const it=(m[k]??={nome:nm,v:0,c:0,temC:false});it.v+=v;const kc='K:'+k.slice(2);if(a.porConta[kc]){it.temC=true;it.c+=ms.reduce((s,x)=>s+(a.porConta[kc][x]||0),0);}}}
+    return Object.values(m).map(x=>({nome:x.nome,v:x.v,mg:x.temC&&x.v?(x.v-x.c)/x.v:null}));}
+  if(tipo==='v'){for(const n of LEAVES)if(isDesc(n,'rec')){const v=valP(lj,n.id,ms);if(v>0)out.push({nome:fullLabel(n.id).split(' › ').slice(1).join(' › '),v});}return out;}
+  if(nivel==='grp'){for(const g of NODE.dop.ch){const v=valP(lj,g.id,ms);if(v>0)out.push({nome:semP(g.l),v});}return out;}
+  for(const n of LEAVES)if(isDesc(n,'dop')){const v=valP(lj,n.id,ms);if(v>0)out.push({nome:NODE[n.parent].l+' › '+n.l,v});}return out;}
+function abcCalc(items){const[a,b]=abcLim();const L=items.slice().sort((x,y)=>y.v-x.v);const tot=L.reduce((s,x)=>s+x.v,0);let ac=0;
+  L.forEach((x,i)=>{const prev=ac;ac+=x.v;x.p=tot?x.v/tot:0;x.ac=tot?ac/tot:0;x.cl=prev/tot<a-1e-9?'A':prev/tot<b-1e-9?'B':'C';x.pos=i+1;});
+  const res={};['A','B','C'].forEach(c=>{const f=L.filter(x=>x.cl===c);res[c]={n:f.length,v:f.reduce((s,x)=>s+x.v,0)};});return{L,tot,res};}
+const ABCcor={A:'#F26419',B:'#1A1A1A',C:'#b5b5b5'};
+function abcBloco(kId,tId,cId,tipo,nivel,titulo){const lj=ST.loja,dm=mesesComDados(lj);const X=dm.length?abcCalc(abcItens(tipo,nivel,lj,dm)):{L:[],tot:0,res:{}};
+  const[a,b]=abcLim();
+  if(!X.L.length){$(kId).innerHTML=`<div class="empty" style="grid-column:1/-1">Sem ${tipo==='v'?'vendas':'despesas operacionais'} importadas no período.</div>`;$(tId).innerHTML='';chart(cId,null);return X;}
+  const desc={A:`até ${Math.round(a*100)}% do total`,B:`de ${Math.round(a*100)}% a ${Math.round(b*100)}%`,C:`acima de ${Math.round(b*100)}%`};
+  $(kId).innerHTML=['A','B','C'].map(c=>`<div class="kpi" style="border-left-color:${ABCcor[c]}"><div class="t">Classe ${c} · ${desc[c]}</div><div class="v">${X.res[c].n} ${X.res[c].n===1?'item':'itens'} · ${fP(X.L.length?X.res[c].n/X.L.length:0)}</div><div class="s">${fR0(X.res[c].v)} · ${fP(X.tot?X.res[c].v/X.tot:0)} do valor</div></div>`).join('')+
+    `<div class="kpi" style="border-left-color:#2f6fd6"><div class="t">Total ${tipo==='v'?'vendido':'de despesas'}</div><div class="v">${fR0(X.tot)}</div><div class="s">${X.L.length} itens</div></div>`;
+  const mg=X.L.some(x=>x.mg!=null);
+  $(tId).innerHTML=`<thead><tr><th>#</th><th style="text-align:left">${titulo}</th><th>Valor</th><th>% do total</th><th>% acumulado</th>${mg?'<th>Margem</th>':''}<th style="text-align:center">Classe</th></tr></thead><tbody>`+
+    X.L.map(x=>`<tr><td class="n">${x.pos}</td><td>${esc(x.nome)}</td><td class="n">${fR(x.v)}</td><td class="n">${fP(x.p)}</td><td class="n">${fP(x.ac)}</td>${mg?`<td class="n ${x.mg<0?'neg':''}">${x.mg!=null?fP(x.mg):''}</td>`:''}<td style="text-align:center"><span class="tag ${x.cl}">${x.cl}</span></td></tr>`).join('')+'</tbody>';
+  const top=X.L.slice(0,40);
+  chart(cId,{type:'bar',data:{labels:top.map(x=>x.nome.length>22?x.nome.slice(0,21)+'…':x.nome),datasets:[
+    {label:'Valor',data:top.map(x=>x.v),backgroundColor:top.map(x=>ABCcor[x.cl]),yAxisID:'y'},
+    {type:'line',label:'% acumulado',data:top.map(x=>x.ac),borderColor:'#2f6fd6',backgroundColor:'#2f6fd6',yAxisID:'y1',tension:.2,pointRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>top[it[0].dataIndex].nome+' · classe '+top[it[0].dataIndex].cl,label:t=>t.datasetIndex?'% acumulado: '+fP(t.raw):'Valor: '+fR0(t.raw)}}},
+      scales:{x:{ticks:{maxRotation:60,minRotation:45,font:{size:10}}},y:{ticks:{callback:v=>v.toLocaleString('pt-BR')}},y1:{position:'right',min:0,max:1,grid:{drawOnChartArea:false},ticks:{callback:v=>(v*100).toFixed(0)+'%'}}}}});
+  return X;}
+function renderABC(){const dm=mesesComDados(ST.loja);
+  $('#abcA').value=ST.abcA||80;$('#abcB').value=ST.abcB||95;$('#abcVn').value=ST.abcVn||'ln';$('#abcDn').value=ST.abcDn||'conta';
+  $('#abcSub').textContent=`${perTxt()} · ${dm.length} mês(es) com dados · classificação pelo valor acumulado (Pareto). O filtro de categorias não se aplica aqui.`;
+  abcBloco('#abcVk','#abcVt','cA1','v',ST.abcVn||'ln',(ST.abcVn||'ln')==='sec'?'Seção do ERP':'Categoria (linha do DRE)');
+  abcBloco('#abcDk','#abcDt','cA2','d',ST.abcDn||'conta',(ST.abcDn||'conta')==='grp'?'Subgrupo':'Conta');}
+['#abcA','#abcB'].forEach(x=>$(x).onchange=()=>{ST.abcA=Math.min(99,Math.max(1,+$('#abcA').value||80));ST.abcB=Math.min(100,Math.max(ST.abcA,+$('#abcB').value||95));savePrefs();renderABC();});
+$('#abcVn').onchange=e=>{ST.abcVn=e.target.value;savePrefs();renderABC();};
+$('#abcDn').onchange=e=>{ST.abcDn=e.target.value;savePrefs();renderABC();};
+
 /* ================= RELATÓRIOS (imprimir / PDF / Excel) ================= */
 Chart.defaults.animation=false;
 const cel=(v,t='R')=>({v:(v==null||!isFinite(v))?null:v,t});
@@ -1219,8 +1286,20 @@ async function secPainel(){const lj=ST.loja,dm=mesesComDados(lj);if(!dm.length)r
   if(prev!=='painel')showTab(prev);
   const MA=dm;const serie={head:['Mês','Faturamento','CMV','Margem contrib.','Despesas fixas','EBITDA','Lucro líquido','Geração de caixa'],rows:MA.map(m=>{const i=indic(lj,[m]);return{lb:MLL(m),lvl:0,s:'lf',c:[i.rb,i.cmv,i.mc,i.dop,i.ebitda,i.ll,i.gc].map(v=>cel(v))};})};
   return {tit:'Painel — indicadores-chave',sub:subt(dm.length+' mês(es) com dados'),kpis:k,imgs,serie};}
+async function capturaGraf(tab,sel){const prev=curTab;if(prev!==tab)showTab(tab);await new Promise(r=>setTimeout(r,250));const imgs=[];
+  document.querySelectorAll(sel).forEach(cv=>{if(cv.style.display==='none'||!CH[cv.id]||cv.offsetParent===null)return;const c2=document.createElement('canvas');c2.width=cv.width;c2.height=cv.height;const g=c2.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c2.width,c2.height);g.drawImage(cv,0,0);imgs.push({cv:cv.id,src:c2.toDataURL('image/png'),w:cv.width,h:cv.height});});
+  if(prev!==tab)showTab(prev);return imgs;}
+async function secsABC(){const dm=mesesComDados(ST.loja);if(!dm.length)return[];const imgs=await capturaGraf('abc','#s-abc canvas');const out=[];
+  const mk=(tipo,nivel,tit,col,cid)=>{const X=abcCalc(abcItens(tipo,nivel,ST.loja,dm));if(!X.L.length)return;const mg=X.L.some(x=>x.mg!=null);
+    const rows=X.L.map(x=>({lb:x.pos+'. '+x.nome,lvl:0,s:x.cl==='A'?'grp':'lf',c:[cel(x.v),cel(x.p,'P'),cel(x.ac,'P'),...(mg?[cel(x.mg,'P')]:[]),'Classe '+x.cl]}));
+    rows.push({lb:'TOTAL',lvl:0,s:'calc',c:[cel(X.tot),cel(1,'P'),null,...(mg?[null]:[]),`A: ${X.res.A.n} · B: ${X.res.B.n} · C: ${X.res.C.n}`]});
+    const im=imgs.find(i=>i.cv===cid);
+    out.push({tit:'Curva ABC — '+tit,sub:subt(`classe A até ${Math.round(abcLim()[0]*100)}%, B até ${Math.round(abcLim()[1]*100)}%`),head:[col,'Valor','% do total','% acumulado',...(mg?['Margem']:[]),'Classe'],rows,img:im});};
+  mk('v',ST.abcVn||'ln','Vendas por categoria',(ST.abcVn||'ln')==='sec'?'Seção do ERP':'Categoria','cA1');
+  mk('d',ST.abcDn||'conta','Despesas operacionais',(ST.abcDn||'conta')==='grp'?'Subgrupo':'Conta','cA2');return out;}
 async function montaRel(lista){const resumo=$('#rResumo').checked;const dmN=mesesComDados(ST.loja).length;const avMes=$('#rAVm').checked;const out=[];
   for(const r of lista){let x=null;
+    if(r==='abc'){(await secsABC()).forEach(z=>out.push(z));continue;}
     if(r==='painel')x=await secPainel();else if(r==='dre')x=secDRE(resumo,avMes);else if(r==='ind')x=secInd();else if(r==='comp')x=secComp(resumo);else if(r==='compl')x=secCompl();else if(r==='marg'){const dm=mesesComDados(ST.loja);const T=dm.length?margemRows(ST.loja,dm):null;if(T)x={tit:'Margem por linha de produto (custo das vendas do ERP)',sub:subt(),...T};}else if(r==='map')x=secMap();
     if(x){if(x.rows&&$('#rZero').checked&&(r==='dre'||r==='comp'))x.rows=x.rows.filter(rw=>rw.s!=='lf'||rw.c.some(c=>c&&typeof c==='object'&&c.v));out.push(x);}}
   return out;}
@@ -1257,6 +1336,7 @@ function relHTML(secs){const st=`@page{size:A4 landscape;margin:9mm}*{box-sizing
   for(const s of secs){h+=`<div class="pg">${cab(s)}`;
     if(s.kpis){h+='<div class="kp">'+s.kpis.map(([l,v,t])=>`<div><span>${esc(l)}</span><b>${v==null||!isFinite(v)?'—':FMT[t](v)}</b></div>`).join('')+'</div>';
       h+='<div class="gr">'+s.imgs.map(i=>`<div class="${i.w/i.h>2.6?'w':''}"><h4>${esc(i.t)}</h4><img src="${i.src}"></div>`).join('')+'</div></div>';continue;}
+    if(s.img)h+=`<img src="${s.img.src}" style="width:100%;max-height:75mm;object-fit:contain;margin-bottom:6px">`;
     h+=`<table><thead><tr>${s.head.map(x=>`<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>`;
     for(const r of s.rows)h+=`<tr class="${r.s}"><td style="padding-left:${4+(r.lvl||0)*10}px">${esc(r.lb)}</td>${r.c.map(c=>`<td class="${c&&c.v<0?'neg':''}">${esc(fmtCel(c))}</td>`).join('')}</tr>`;
     h+='</tbody></table></div>';}
@@ -1291,6 +1371,7 @@ async function relPDF(secs){
         const ih=gh-6,iw=Math.min(aw,ih*im.w/im.h);doc.addImage(im.src,'PNG',cx,y+5,iw,ih);
         if(wide||col===1){y+=gh+3;col=0;}else col=1;}
       return;}
+    if(s.img){const iw=W-2*M,ih=Math.min(iw*s.img.h/s.img.w,78);doc.addImage(s.img.src,'PNG',M,y,ih*s.img.w/s.img.h>iw?iw:ih*s.img.w/s.img.h,ih);y+=ih+3;}
     const nc=s.head.length;const fs=nc>20?5.6:nc>14?6.3:nc>9?7.2:8;
     const lw=nc>20?54:nc>14?60:nc>9?78:90;
     doc.autoTable({startY:y,head:[s.head.map(pdfTxt)],body:s.rows.map(r=>[pdfTxt(r.lb),...r.c.map(c=>pdfTxt(fmtCel(c)))]),margin:{left:M,right:M,top:M+21,bottom:12},
