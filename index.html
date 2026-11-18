@@ -314,7 +314,7 @@ body.cons .cons-only.blk{display:block!important}
       </div>
       <div class="card"><h3>Opções</h3>
         <label class="fld"><input type="checkbox" id="rResumo"> DRE resumido (só grupos principais e linhas de resultado)</label>
-        <label class="fld"><input type="checkbox" id="rZero" checked> Ocultar contas e grupos sem valor no período</label>
+        <label class="fld"><input type="checkbox" id="rZero"> Ocultar contas sem valor no período (grupos e linhas de resultado sempre aparecem)</label>
         <label class="fld"><input type="checkbox" id="rAVm"> AV% em cada mês (recomendado para até 6 meses)</label>
         <div class="banner info" id="rInfo" style="margin-top:12px"></div>
         <div class="row" style="margin-top:6px">
@@ -1202,7 +1202,7 @@ async function secPainel(){const lj=ST.loja,dm=mesesComDados(lj);if(!dm.length)r
 async function montaRel(lista){const resumo=$('#rResumo').checked;const dmN=mesesComDados(ST.loja).length;const avMes=$('#rAVm').checked;const out=[];
   for(const r of lista){let x=null;
     if(r==='painel')x=await secPainel();else if(r==='dre')x=secDRE(resumo,avMes);else if(r==='ind')x=secInd();else if(r==='comp')x=secComp(resumo);else if(r==='compl')x=secCompl();else if(r==='marg'){const dm=mesesComDados(ST.loja);const T=dm.length?margemRows(ST.loja,dm):null;if(T)x={tit:'Margem por linha de produto (custo das vendas do ERP)',sub:subt(),...T};}else if(r==='map')x=secMap();
-    if(x){if(x.rows&&$('#rZero').checked&&(r==='dre'||r==='comp'))x.rows=x.rows.filter(rw=>rw.s==='calc'||rw.s==='big'||rw.c.some(c=>c&&typeof c==='object'&&c.v));out.push(x);}}
+    if(x){if(x.rows&&$('#rZero').checked&&(r==='dre'||r==='comp'))x.rows=x.rows.filter(rw=>rw.s!=='lf'||rw.c.some(c=>c&&typeof c==='object'&&c.v));out.push(x);}}
   return out;}
 const NOMEREL=()=>`Agromeyer_${nomeLoja().replace(/\s/g,'')}_${ST.per.de}_a_${ST.per.ate}`;
 const quem=()=>(SYNC.user&&SYNC.user.email)||'';
